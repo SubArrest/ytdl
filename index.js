@@ -61,7 +61,7 @@ app.get("/ytdl", (req, res) => {
                                         videoId: video.id,
                                         videoTitle: video.title,
                                         thumbnail: video.thumbnails.high.url,
-                                        url: `https://pi.substuff.org/api/ytdl/downloads/${ytID}.mp3`,
+                                        url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.mp3`,
                                         channel: video.channel.title
                                     };
                                     const jsonStr = JSON.stringify(edit);
