@@ -22,10 +22,6 @@ function youtube_parser(url){
 }
 
 app.get("/", (req, res) => {
-    res.send("hello world");
-});
-
-app.get("/ytdl", (req, res) => {
     const ytURL = req.query.link
     if(!ytURL) return res.send({
         error: 400,
