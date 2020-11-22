@@ -109,6 +109,81 @@ app.get("/", (req, res) => {
     });
 });
 
-app.use("/ytdl/downloads", express.static("/root/apis/ytdl/downloads"));
+app.get("/mp4", (req, res) => {
+    const ytURL = req.query.link
+    if(!ytURL) return res.send({
+        error: 400,
+        message: "Not A Valid Youtube Video URL Or Video ID [1]"
+    });
+    fs.access("/root/apis/ytdl/downloads/"+youtube_parser(ytURL)+"-mp4.json", fs.F_OK, function(err){
+		if (err) {
+			if(youtube_parser(ytURL) !== false){
+				youtube.getVideo(ytURL)
+                .then(async video => {
+                    const Duration = video.durationSeconds
+                    if(Duration>600){
+                        return res.send({
+                            error: 100,
+                            message: "Video Duration Exceeds Set Max Amount: 10 Minutes"
+                        });
+                    }
+                    else{
+                        const ytID = youtube_parser(ytURL);
+                        let info = await ytdl.getInfo(ytURL);
+                        const stream = ytdl.downloadFromInfo(info,{
+                            quality: 'highestvideo', 
+                            filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
+                        });
+                        stream.pipe(fs.createWriteStream(`/root/apis/ytdl/downloads/${ytID}.mp4`));
+                        stream.on("end", () => {
+                            youtube.getVideo(ytURL).then(video => {
+                                const edit = {
+                                    videoId: video.id,
+                                    videoTitle: video.title,
+                                    thumbnail: video.thumbnails.high.url,
+                                    url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.mp4`,
+                                    channel: video.channel.title
+                                };
+                                const jsonStr = JSON.stringify(edit);
+                                fs.writeFileSync(`/root/apis/ytdl/downloads/${ytID}-mp4.json`, jsonStr);
+                                return res.send(edit);
+                            });
+                        });
+                        stream.on("error", err => {
+                            console.error(err);
+                            return res.send({
+                                error: 500,
+                                message: "Error while trying to get video [2]"
+                            });
+                        });
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    return res.send({
+                        error: 400,
+                        message: "Not A Valid Youtube Video URL Or Video ID [2]"
+                    });
+                });
+			}
+			else return res.send({
+                error: 400,
+                message: "Not A Valid Youtube Video URL Or Video ID [3]"
+            });
+		}
+		else{
+            fs.readFile(`/root/apis/ytdl/downloads/${youtube_parser(ytURL)}-mp4.json`, "utf8" , async (err, data) => {
+                if(err) return res.send({
+                    error: 200,
+                    message: "Failed To Read Contents Of JSON"
+                });
+                const decoded = await JSON.parse(data)
+                return res.send(decoded);
+            });
+        }
+    });
+});
+
+app.use("/downloads", express.static("/root/apis/ytdl/downloads"));
 
 app.listen(port, () => console.log(`Listening On Port ${port}...`));
