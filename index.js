@@ -131,7 +131,7 @@ app.get("/mp4", (req, res) => {
                         const ytID = youtube_parser(ytURL);
                         let info = await ytdl.getInfo(ytURL);
                         const stream = ytdl.downloadFromInfo(info,{
-                            quality: 'highestvideo', 
+                            quality: 'highest', 
                             filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
                         });
                         stream.pipe(fs.createWriteStream(`/root/apis/ytdl/downloads/${ytID}.mp4`));
