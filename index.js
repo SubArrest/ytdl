@@ -23,9 +23,8 @@ function youtube_parser(url){
 
 app.get("/", (req, res) => {
     const ytURL = req.query.link
-    if(!ytURL) return res.send({
-        error: 400,
-        message: "Not A Valid Youtube Video URL Or Video ID [1]"
+    if(!ytURL) return res.status(400).send({
+        message: "Not A Valid Youtube Video URL Or Video ID"
     });
     fs.access("/root/apis/ytdl/downloads/"+youtube_parser(ytURL)+".json", fs.F_OK, function(err){
 		if (err) {
@@ -34,8 +33,7 @@ app.get("/", (req, res) => {
                 .then(async video => {
                     const Duration = video.durationSeconds
                     if(Duration>600){
-                        return res.send({
-                            error: 100,
+                        return res.status(413).send({
                             message: "Video Duration Exceeds Set Max Amount: 10 Minutes"
                         });
                     }
@@ -62,48 +60,43 @@ app.get("/", (req, res) => {
                                     };
                                     const jsonStr = JSON.stringify(edit);
                                     fs.writeFileSync(`/root/apis/ytdl/downloads/${ytID}.json`, jsonStr);
-                                    return res.send(edit);
+                                    return res.status(200).send(edit);
                                 });
                             })
                             .on("error", err => {
                                 console.error(err);
-                                return res.send({
-                                    error: 500,
-                                    message: "Error while trying to get video [1]"
+                                return res.status(500).send({
+                                    message: "Error while trying to get video"
                                 });
                             })
                             .pipe(fs.createWriteStream(`/root/apis/ytdl/downloads/${ytID}.mp3`));
                         });
                         stream.on("error", err => {
                             console.error(err);
-                            return res.send({
-                                error: 500,
-                                message: "Error while trying to get video [2]"
+                            return res.status(500).send({
+                                message: "Error while trying to get video"
                             });
                         });
                     }
                 })
                 .catch(err => {
                     console.error(err);
-                    return res.send({
-                        error: 400,
-                        message: "Not A Valid Youtube Video URL Or Video ID [2]"
+                    return res.status(400).send({
+                        message: "Not A Valid Youtube Video URL Or Video ID"
                     });
                 });
 			}
-			else return res.send({
-                error: 400,
-                message: "Not A Valid Youtube Video URL Or Video ID [3]"
+			else return res.status(400).send({
+                message: "Not A Valid Youtube Video URL Or Video ID"
             });
 		}
 		else{
             fs.readFile(`/root/apis/ytdl/downloads/${youtube_parser(ytURL)}.json`, "utf8" , async (err, data) => {
-                if(err) return res.send({
-                    error: 200,
+                if(err) return res.status(500).send({
                     message: "Failed To Read Contents Of JSON"
                 });
                 const decoded = await JSON.parse(data)
-                return res.send(decoded);
+                return res.status(200).send(decoded);
             });
         }
     });
@@ -111,9 +104,8 @@ app.get("/", (req, res) => {
 
 app.get("/mp4", (req, res) => {
     const ytURL = req.query.link
-    if(!ytURL) return res.send({
-        error: 400,
-        message: "Not A Valid Youtube Video URL Or Video ID [1]"
+    if(!ytURL) return res.status(400).send({
+        message: "Not A Valid Youtube Video URL Or Video ID"
     });
     fs.access("/root/apis/ytdl/downloads/"+youtube_parser(ytURL)+"-mp4.json", fs.F_OK, function(err){
 		if (err) {
@@ -122,8 +114,7 @@ app.get("/mp4", (req, res) => {
                 .then(async video => {
                     const Duration = video.durationSeconds
                     if(Duration>600){
-                        return res.send({
-                            error: 100,
+                        return res.status(413).send({
                             message: "Video Duration Exceeds Set Max Amount: 10 Minutes"
                         });
                     }
@@ -146,39 +137,35 @@ app.get("/mp4", (req, res) => {
                                 };
                                 const jsonStr = JSON.stringify(edit);
                                 fs.writeFileSync(`/root/apis/ytdl/downloads/${ytID}-mp4.json`, jsonStr);
-                                return res.send(edit);
+                                return res.status(200).send(edit);
                             });
                         });
                         stream.on("error", err => {
                             console.error(err);
-                            return res.send({
-                                error: 500,
-                                message: "Error while trying to get video [2]"
+                            return res.status(500).send({
+                                message: "Error while trying to get video"
                             });
                         });
                     }
                 })
                 .catch(err => {
                     console.error(err);
-                    return res.send({
-                        error: 400,
-                        message: "Not A Valid Youtube Video URL Or Video ID [2]"
+                    return res.status(400).send({
+                        message: "Not A Valid Youtube Video URL Or Video ID"
                     });
                 });
 			}
-			else return res.send({
-                error: 400,
-                message: "Not A Valid Youtube Video URL Or Video ID [3]"
+			else return res.status(400).send({
+                message: "Not A Valid Youtube Video URL Or Video ID"
             });
 		}
 		else{
             fs.readFile(`/root/apis/ytdl/downloads/${youtube_parser(ytURL)}-mp4.json`, "utf8" , async (err, data) => {
-                if(err) return res.send({
-                    error: 200,
+                if(err) return res.status(500).send({
                     message: "Failed To Read Contents Of JSON"
                 });
                 const decoded = await JSON.parse(data)
-                return res.send(decoded);
+                return res.status(200).send(decoded);
             });
         }
     });
