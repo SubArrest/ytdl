@@ -22,7 +22,9 @@ function youtube_parser(url){
 }
 
 app.get("/", (req, res) => {
-	const ytURL = req.query.link
+	const ytURL = req.query.link;
+	const nolimit = req.query.nolimit=="true";
+	res.header("Content-Type",'application/json');
 	if(!ytURL) return res.status(400).send({
 		message: "Not A Valid Youtube Video URL Or Video ID"
 	});
@@ -32,7 +34,7 @@ app.get("/", (req, res) => {
 				youtube.getVideo(ytURL)
 				.then(async video => {
 					const Duration = video.durationSeconds
-					if(Duration>600){
+					if(Duration>600 & !nolimit){
 						return res.status(413).send({
 							message: "Video Duration Exceeds Set Max Amount: 10 Minutes"
 						});
@@ -107,6 +109,8 @@ app.get("/", (req, res) => {
 
 app.get("/mp4", (req, res) => {
 	const ytURL = req.query.link
+	const nolimit = req.query.nolimit == "true";
+	res.header("Content-Type",'application/json');
 	if(!ytURL) return res.status(400).send({
 		message: "Not A Valid Youtube Video URL Or Video ID"
 	});
@@ -116,9 +120,9 @@ app.get("/mp4", (req, res) => {
 				youtube.getVideo(ytURL)
 				.then(async video => {
 					const Duration = video.durationSeconds
-					if(Duration>600){
+					if(Duration>1200 & !nolimit){
 						return res.status(413).send({
-							message: "Video Duration Exceeds Set Max Amount: 10 Minutes"
+							message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
 						});
 					}
 					else{
