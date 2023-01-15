@@ -1,5 +1,6 @@
 node_modules/
 downloads/
 test.js
+new.js
 .env
 process.json
