@@ -35,9 +35,9 @@ app.get("/:format?", (req, res) => {
 				youtube.getVideo(ytURL)
 				.then(async video => {
 					const Duration = video.durationSeconds
-					if(Duration>600 & !nolimit){
+					if(Duration>1200 & !nolimit){
 						return res.status(413).send({
-							message: "Video Duration Exceeds Set Max Amount: 10 Minutes"
+							message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
 						});
 					}
 					else{
