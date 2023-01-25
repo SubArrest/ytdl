@@ -4,3 +4,4 @@ test.js
 new.js
 .env
 process.json
+.DS_Store
