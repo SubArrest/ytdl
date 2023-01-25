@@ -1,7 +1,6 @@
 node_modules/
 downloads/
 test/
-new.js
 .env
 process.json
 .DS_Store
