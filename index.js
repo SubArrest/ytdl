@@ -5,7 +5,7 @@ const ffmpeg = require("fluent-ffmpeg");
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 const { config } = require("dotenv");
 config({
-	path: "/root/apis/ytdl/.env"
+	path: "./.env"
 });
 const express = require("express");
 const app = express();
@@ -16,9 +16,9 @@ const token = process.env.TOKEN;
 const youtube = new YouTube(token);
 
 function youtube_parser(url){
-	var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+	var regExp = /^(?:https?:\/\/)?(?:(?:www\.)?youtube.com\/(?:shorts\/|watch\?v=)|(?:youtu.be\/(?!watch\?)|youtu.be\/(?:watch\?v=))(?!.*shorts\/))([^#&?]*).*/
 	var match = url.match(regExp);
-	return (match&&match[7].length==11)? match[7] : false;
+	return (match&&match[1].length==11)? match[1] : false;
 }
 
 app.get("/:format?", (req, res) => {
@@ -29,7 +29,7 @@ app.get("/:format?", (req, res) => {
 	if(!ytURL) return res.status(400).send({
 		message: "Not A Valid Youtube Video URL Or Video ID"
 	});
-	fs.access(`/root/apis/ytdl/downloads/${youtube_parser(ytURL)}-${format}.json`, fs.F_OK, function(err){
+	fs.access(`./downloads/${youtube_parser(ytURL)}-${format}.json`, fs.F_OK, function(err){
 		if (err) {
 			if(youtube_parser(ytURL) !== false){
 				youtube.getVideo(ytURL)
@@ -64,25 +64,25 @@ app.get("/:format?", (req, res) => {
 											channel: video.channel.title
 										};
 										const jsonStr = JSON.stringify(edit);
-										fs.writeFileSync(`/root/apis/ytdl/downloads/${ytID}-${format}.json`, jsonStr);
+										fs.writeFileSync(`./downloads/${ytID}-${format}.json`, jsonStr);
 										console.log(`(${ytID}) ${format} done!`);
 										return res.status(200).send(edit);
 									});
 								})
 								.on("error", err => {
 									console.error(err.message);
-									fs.unlink(`/root/apis/ytdl/downloads/${ytID}.${format}`, err => {
+									fs.unlink(`./downloads/${ytID}.${format}`, err => {
 										if(err) console.error(err);
 									});
 									return res.status(400).send({
 										message: "Format Not Supported"
 									});
 								})
-								.pipe(fs.createWriteStream(`/root/apis/ytdl/downloads/${ytID}.${format}`));
+								.pipe(fs.createWriteStream(`./downloads/${ytID}.${format}`));
 							});
 						}
 						else{
-							stream.pipe(fs.createWriteStream(`/root/apis/ytdl/downloads/${ytID}.mp4`));
+							stream.pipe(fs.createWriteStream(`./downloads/${ytID}.mp4`));
 							stream.on("end", () => {
 								youtube.getVideo(ytURL).then(video => {
 									const edit = {
@@ -93,7 +93,7 @@ app.get("/:format?", (req, res) => {
 										channel: video.channel.title
 									};
 									const jsonStr = JSON.stringify(edit);
-									fs.writeFileSync(`/root/apis/ytdl/downloads/${ytID}-mp4.json`, jsonStr);
+									fs.writeFileSync(`./downloads/${ytID}-mp4.json`, jsonStr);
 									console.log(`(${ytID}) mp4 done!`);
 									return res.status(200).send(edit);
 								});
@@ -119,7 +119,7 @@ app.get("/:format?", (req, res) => {
 			});
 		}
 		else{
-			fs.readFile(`/root/apis/ytdl/downloads/${youtube_parser(ytURL)}-${format}.json`, "utf8" , async (err, data) => {
+			fs.readFile(`./downloads/${youtube_parser(ytURL)}-${format}.json`, "utf8" , async (err, data) => {
 				if(err) return res.status(500).send({
 					message: "Failed To Read Contents Of JSON"
 				});
@@ -131,6 +131,6 @@ app.get("/:format?", (req, res) => {
 	});
 });
 
-app.use("/downloads", express.static("/root/apis/ytdl/downloads"));
+app.use("/downloads", express.static("./downloads"));
 
 app.listen(port, () => console.log(`Listening On Port ${port}...`));
