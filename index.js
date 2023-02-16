@@ -21,7 +21,7 @@ function youtube_parser(url){
 	return (match&&match[1].length==11)? match[1] : false;
 }
 
-app.get("/:format?", (req, res) => {
+app.get("/download/:format?", (req, res) => {
 	const ytURL = req.query.link;
 	const nolimit = req.query.nolimit=="true";
 	let format = req.params.format ? req.params.format.toLowerCase() : "mp3";
@@ -100,7 +100,6 @@ app.get("/:format?", (req, res) => {
 							});	
 						}
 						stream.on("error", err => {
-							console.error(err);
 							return res.status(500).send({
 								message: "Error while trying to get video"
 							});
@@ -128,6 +127,33 @@ app.get("/:format?", (req, res) => {
 				return res.status(200).send(decoded);
 			});
 		}
+	});
+});
+
+app.get("/stream", (req, res) => {
+	const link = req.query.link;
+	const id = youtube_parser(link);
+	if (!link || !id) return res.status(400).send("Not A Valid Youtube Video URL Or Video ID");
+
+	res.setHeader('Content-Type', 'audio/mpeg');
+
+	const astream = ytdl(link,{
+		quality: 'highestaudio', 
+		filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
+	});
+	astream.on("response", () => {
+		new ffmpeg({source: astream})
+		.on("end", () => console.log(`(${id}) stream processed`))
+		.on("error", err => {
+			if(err.message !== "Output stream closed") console.error(err);
+		})
+		.format('mp3')
+		.audioCodec('libmp3lame')
+		.pipe(res, { end: true })
+	});
+	astream.on("error", err => {
+		res.setHeader('Content-Type', 'text/html');
+		return res.status(500).send("Error while trying to get video");
 	});
 });
 
