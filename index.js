@@ -136,25 +136,29 @@ app.get("/stream", (req, res) => {
 	if (!link || !id) return res.status(400).send("Not A Valid Youtube Video URL Or Video ID");
 
 	res.setHeader('Content-Type', 'audio/mpeg');
-
-	const astream = ytdl(link,{
-		quality: 'highestaudio', 
-		filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
+	const timeout = setTimeout(() => {
+		const astream = ytdl(link,{
+			quality: 'highestaudio', 
+			filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
+		});
+		astream.on("response", () => {
+			new ffmpeg({source: astream})
+			.on("end", () => {
+				console.log(`(${id}) stream processed`)
+			})
+			.on("error", err => {
+				if(err.message !== "Output stream closed") console.error(err);
+			})
+			.format('mp3')
+			.audioCodec('libmp3lame')
+			.pipe(res, { end: true })
+		});
+		astream.on("error", err => {
+			res.setHeader('Content-Type', 'text/html');
+			return res.status(500).send("Error while trying to get video");
+		});
 	});
-	astream.on("response", () => {
-		new ffmpeg({source: astream})
-		.on("end", () => console.log(`(${id}) stream processed`))
-		.on("error", err => {
-			if(err.message !== "Output stream closed") console.error(err);
-		})
-		.format('mp3')
-		.audioCodec('libmp3lame')
-		.pipe(res, { end: true })
-	});
-	astream.on("error", err => {
-		res.setHeader('Content-Type', 'text/html');
-		return res.status(500).send("Error while trying to get video");
-	});
+	req.on("close",() => clearTimeout(timeout));
 });
 
 app.use("/downloads", express.static("./downloads"));
