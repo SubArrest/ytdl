@@ -134,8 +134,10 @@ app.get("/stream", (req, res) => {
 	const link = req.query.link;
 	const id = youtube_parser(link);
 	if (!link || !id) return res.status(400).send("Not A Valid Youtube Video URL Or Video ID");
+	const check = req.headers['sec-fetch-dest'] === 'video';
 
 	res.setHeader('Content-Type', 'audio/mpeg');
+
 	const timeout = setTimeout(() => {
 		const astream = ytdl(link,{
 			quality: 'highestaudio', 
@@ -144,7 +146,7 @@ app.get("/stream", (req, res) => {
 		astream.on("response", () => {
 			new ffmpeg({source: astream})
 			.on("end", () => {
-				console.log(`(${id}) stream processed`)
+				if(check) console.log(`(${id}) stream processed`)
 			})
 			.on("error", err => {
 				if(err.message !== "Output stream closed") console.error(err);
