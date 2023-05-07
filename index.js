@@ -16,9 +16,7 @@ const token = process.env.TOKEN;
 const youtube = new YouTube(token);
 
 function youtube_parser(url){
-	var regExp = /^(?:https?:\/\/)?(?:(?:www\.)?youtube.com\/(?:shorts\/|watch\?v=)|(?:youtu.be\/(?!watch\?)|youtu.be\/(?:watch\?v=))(?!.*shorts\/))([^#&?]*).*/
-	var match = url.match(regExp);
-	return (match&&match[1].length==11)? match[1] : false;
+	return ytdl.validateURL(url) ? ytdl.getURLVideoID(url) : false
 }
 
 app.get("/download/:format?", (req, res) => {
@@ -31,7 +29,8 @@ app.get("/download/:format?", (req, res) => {
 	});
 	fs.access(`./downloads/${youtube_parser(ytURL)}-${format}.json`, fs.F_OK, function(err){
 		if (err) {
-			if(youtube_parser(ytURL) !== false){
+			const ytID = youtube_parser(ytURL);
+			if(ytID){
 				youtube.getVideo(ytURL)
 				.then(async video => {
 					const Duration = video.durationSeconds
@@ -41,7 +40,6 @@ app.get("/download/:format?", (req, res) => {
 						});
 					}
 					else{
-						const ytID = youtube_parser(ytURL);
 						console.log(`downloading ${ytID} ${format}...`);
 						let info = await ytdl.getInfo(ytURL);
 						const stream = ytdl.downloadFromInfo(info,{
@@ -107,7 +105,7 @@ app.get("/download/:format?", (req, res) => {
 					}
 				})
 				.catch(err => {
-					console.error(err);
+					console.log(err);
 					return res.status(400).send({
 						message: "Not A Valid Youtube Video URL Or Video ID"
 					});
@@ -157,11 +155,34 @@ app.get("/stream", (req, res) => {
 		});
 		astream.on("error", err => {
 			res.setHeader('Content-Type', 'text/html');
+			console.error(err);
 			return res.status(500).send("Error while trying to get video");
 		});
 	});
 	req.on("close",() => clearTimeout(timeout));
 });
+
+app.get("/playlist", (req, res) => {
+	const link = req.query.link;
+	youtube.getPlaylist(link)
+    .then(playlist => {
+        playlist.getVideos()
+            .then(videos => {
+				const s = videos.map(v => `https://www.youtube.com/watch?v=${v.id}`)
+				res.status(200).send(s);
+            })
+			.catch(err => {
+				return res.status(400).send({
+					message: "Not A Valid Youtube Playlist URL Or Playlist ID"
+				});
+			});
+    })
+	.catch(err => {
+		return res.status(400).send({
+			message: "Not A Valid Youtube Playlist URL Or Playlist ID"
+		});
+	});
+})
 
 app.use("/downloads", express.static("./downloads"));
 
