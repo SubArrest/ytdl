@@ -20,7 +20,8 @@
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "fluent-ffmpeg": "^2.1.2",
+    "qrcode": "^1.5.3",
     "simple-youtube-api": "^5.2.1",
-    "ytdl-core": "^4.11.4"
+    "ytdl-core": "^4.11.5"
   }
 }

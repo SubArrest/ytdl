@@ -1,6 +1,8 @@
 const fs = require("fs");
+const https = require("https");
 const ytdl = require("ytdl-core");
 const YouTube = require("simple-youtube-api")
+const qr = require("qrcode");
 const ffmpeg = require("fluent-ffmpeg");
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 const { config } = require("dotenv");
@@ -54,17 +56,30 @@ app.get("/download/:format?", (req, res) => {
 								.toFormat(format)
 								.on("end", () => {
 									youtube.getVideo(ytURL).then(video => {
-										const edit = {
-											videoId: video.id,
-											videoTitle: video.title,
-											thumbnail: video.thumbnails.high.url,
-											url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-											channel: video.channel.title
-										};
-										const jsonStr = JSON.stringify(edit);
-										fs.writeFileSync(`./downloads/${ytID}-${format}.json`, jsonStr);
-										console.log(`(${ytID}) ${format} done!`);
-										return res.status(200).send(edit);
+										qr.toFile(`./downloads/${ytID}.png`, `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`, {errorCorrectionLevel: 'H'}, function(err) {
+											if (err) {
+												return res.status(500).send({
+													message: "QR Code Failed To Send"
+												})
+											}
+											let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
+											https.get(thumb, (r) => {
+												if (r.statusCode === 404) thumb = `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg`
+
+												const edit = {
+													videoId: video.id,
+													videoTitle: video.title,
+													thumbnail: thumb,
+													url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
+													qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
+													channel: video.channel.title
+												};
+												const jsonStr = JSON.stringify(edit);
+												fs.writeFileSync(`./downloads/${ytID}-${format}.json`, jsonStr);
+												console.log(`(${ytID}) ${format} done!`);
+												return res.status(200).send(edit);
+											});
+										});
 									});
 								})
 								.on("error", err => {
@@ -83,17 +98,30 @@ app.get("/download/:format?", (req, res) => {
 							stream.pipe(fs.createWriteStream(`./downloads/${ytID}.mp4`));
 							stream.on("end", () => {
 								youtube.getVideo(ytURL).then(video => {
-									const edit = {
-										videoId: video.id,
-										videoTitle: video.title,
-										thumbnail: video.thumbnails.high.url,
-										url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.mp4`,
-										channel: video.channel.title
-									};
-									const jsonStr = JSON.stringify(edit);
-									fs.writeFileSync(`./downloads/${ytID}-mp4.json`, jsonStr);
-									console.log(`(${ytID}) mp4 done!`);
-									return res.status(200).send(edit);
+									qr.toFile(`./downloads/${ytID}.png`, `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`, {errorCorrectionLevel: 'H'}, function(err) {
+										if (err) {
+											return res.status(500).send({
+												message: "QR Code Failed To Send"
+											})
+										}
+										let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
+										https.get(thumb, (r) => {
+											if (r.statusCode === 404) thumb = `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg`
+
+											const edit = {
+												videoId: video.id,
+												videoTitle: video.title,
+												thumbnail: thumb,
+												url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
+												qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
+												channel: video.channel.title
+											};
+											const jsonStr = JSON.stringify(edit);
+											fs.writeFileSync(`./downloads/${ytID}-mp4.json`, jsonStr);
+											console.log(`(${ytID}) mp4 done!`);
+											return res.status(200).send(edit);
+										});
+									});
 								});
 							});	
 						}
@@ -164,18 +192,28 @@ app.get("/stream", (req, res) => {
 
 app.get("/playlist", (req, res) => {
 	const link = req.query.link;
+	const shuffle = req.query.shuffle=="true";
 	youtube.getPlaylist(link)
     .then(playlist => {
         playlist.getVideos()
-            .then(videos => {
+		.then(videos => {
+			if(shuffle){
+				const s = videos
+					.map(v => `https://www.youtube.com/watch?v=${v.id}`)
+					.map(value => ({ value, sort: Math.random() }))
+					.sort((a, b) => a.sort - b.sort)
+					.map(({ value }) => value);
+				res.status(200).send(s);
+			}else{
 				const s = videos.map(v => `https://www.youtube.com/watch?v=${v.id}`)
 				res.status(200).send(s);
-            })
-			.catch(err => {
-				return res.status(400).send({
-					message: "Not A Valid Youtube Playlist URL Or Playlist ID"
-				});
+			}
+		})
+		.catch(err => {
+			return res.status(400).send({
+				message: "Not A Valid Youtube Playlist URL Or Playlist ID"
 			});
+		});
     })
 	.catch(err => {
 		return res.status(400).send({
