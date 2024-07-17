@@ -1,8 +1,9 @@
 const fs = require("fs");
 const https = require("https");
-const ytdl = require("ytdl-core");
+const ytdl = require("@distube/ytdl-core");
 const YouTube = require("simple-youtube-api")
 const qr = require("qrcode");
+const { getAverageColor } = require("fast-average-color-node");
 const ffmpeg = require("fluent-ffmpeg");
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 const { config } = require("dotenv");
@@ -66,18 +67,21 @@ app.get("/download/:format?", (req, res) => {
 											https.get(thumb, (r) => {
 												if (r.statusCode === 404) thumb = `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg`
 
-												const edit = {
-													videoId: video.id,
-													videoTitle: video.title,
-													thumbnail: thumb,
-													url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-													qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
-													channel: video.channel.title
-												};
-												const jsonStr = JSON.stringify(edit);
-												fs.writeFileSync(`./downloads/${ytID}-${format}.json`, jsonStr);
-												console.log(`(${ytID}) ${format} done!`);
-												return res.status(200).send(edit);
+												getAverageColor(thumb)
+												.then(color => {
+													const edit = {
+														videoId: video.id,
+														videoTitle: video.title,
+														thumbnail: {image: thumb, average: color},
+														url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
+														qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
+														channel: video.channel.title
+													};
+													const jsonStr = JSON.stringify(edit);
+													fs.writeFileSync(`./downloads/${ytID}-${format}.json`, jsonStr);
+													console.log(`(${ytID}) ${format} done!`);
+													return res.status(200).send(edit);
+												});
 											});
 										});
 									});
@@ -108,24 +112,28 @@ app.get("/download/:format?", (req, res) => {
 										https.get(thumb, (r) => {
 											if (r.statusCode === 404) thumb = `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg`
 
-											const edit = {
-												videoId: video.id,
-												videoTitle: video.title,
-												thumbnail: thumb,
-												url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-												qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
-												channel: video.channel.title
-											};
-											const jsonStr = JSON.stringify(edit);
-											fs.writeFileSync(`./downloads/${ytID}-mp4.json`, jsonStr);
-											console.log(`(${ytID}) mp4 done!`);
-											return res.status(200).send(edit);
+											getAverageColor(thumb)
+											.then(color => {
+												const edit = {
+													videoId: video.id,
+													videoTitle: video.title,
+													thumbnail: {image: thumb, average: color},
+													url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
+													qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
+													channel: video.channel.title
+												};
+												const jsonStr = JSON.stringify(edit);
+												fs.writeFileSync(`./downloads/${ytID}-${format}.json`, jsonStr);
+												console.log(`(${ytID}) ${format} done!`);
+												return res.status(200).send(edit);
+											});
 										});
 									});
 								});
 							});	
 						}
 						stream.on("error", err => {
+							console.error(err);
 							return res.status(500).send({
 								message: "Error while trying to get video"
 							});
