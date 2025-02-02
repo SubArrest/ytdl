@@ -17,7 +17,8 @@
   },
   "homepage": "https://github.com/SubArrest/ytdl#readme",
   "dependencies": {
-    "@distube/ytdl-core": "^4.13.5",
+    "@distube/ytdl-core": "^4.16.0",
+    "discord.js": "^14.15.3",
     "dotenv": "^16.0.3",
     "express": "^4.19.2",
     "fast-average-color-node": "^2.7.0",

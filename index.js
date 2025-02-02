@@ -4,6 +4,8 @@ const ytdl = require("@distube/ytdl-core");
 const YouTube = require("simple-youtube-api")
 const qr = require("qrcode");
 const { getAverageColor } = require("fast-average-color-node");
+const { AttachmentBuilder, WebhookClient } = require("discord.js");
+const { PassThrough } = require("stream");
 const ffmpeg = require("fluent-ffmpeg");
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 const { config } = require("dotenv");
@@ -16,186 +18,309 @@ const app = express();
 const port = process.env.PORT || 3000;
 const token = process.env.TOKEN;
 
+const webhookClient = new WebhookClient({ id: process.env.WEBHOOKID, token: process.env.WEBHOOKTOKEN });
+
 const youtube = new YouTube(token);
 
 function youtube_parser(url){
 	return ytdl.validateURL(url) ? ytdl.getURLVideoID(url) : false
 }
 
-app.get("/download/:format?", (req, res) => {
+app.get("/download/:format?", async (req, res) => {
 	const ytURL = req.query.link;
 	const nolimit = req.query.nolimit=="true";
 	let format = req.params.format ? req.params.format.toLowerCase() : "mp3";
+
 	res.header("Content-Type",'application/json');
+
 	if(!ytURL) return res.status(400).send({
 		message: "Not A Valid Youtube Video URL Or Video ID"
 	});
-	fs.access(`./downloads/${youtube_parser(ytURL)}-${format}.json`, fs.F_OK, function(err){
-		if (err) {
-			const ytID = youtube_parser(ytURL);
-			if(ytID){
-				youtube.getVideo(ytURL)
-				.then(async video => {
-					const Duration = video.durationSeconds
-					if(Duration>1200 & !nolimit){
-						return res.status(413).send({
-							message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
-						});
-					}
-					else{
-						console.log(`downloading ${ytID} ${format}...`);
-						let info = await ytdl.getInfo(ytURL);
-						const stream = ytdl.downloadFromInfo(info,{
-							quality: 'highestaudio', 
-							filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
-						});
-						if(format !== "mp4"){
-							stream.on("response", response => {
-								new ffmpeg({
-									source: stream
-								})
-								.toFormat(format)
-								.on("end", () => {
-									youtube.getVideo(ytURL).then(video => {
-										qr.toFile(`./downloads/${ytID}.png`, `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`, {errorCorrectionLevel: 'H'}, function(err) {
-											if (err) {
-												return res.status(500).send({
-													message: "QR Code Failed To Send"
-												})
-											}
-											let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
-											https.get(thumb, (r) => {
-												if (r.statusCode === 404) thumb = `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg`
 
-												getAverageColor(thumb)
-												.then(color => {
-													const edit = {
-														videoId: video.id,
-														videoTitle: video.title,
-														thumbnail: {image: thumb, average: color},
-														url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-														qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
-														channel: video.channel.title
-													};
-													const jsonStr = JSON.stringify(edit);
-													fs.writeFileSync(`./downloads/${ytID}-${format}.json`, jsonStr);
-													console.log(`(${ytID}) ${format} done!`);
-													return res.status(200).send(edit);
-												});
-											});
-										});
-									});
-								})
-								.on("error", err => {
-									console.error(err.message);
-									fs.unlink(`./downloads/${ytID}.${format}`, err => {
-										if(err) console.error(err);
-									});
-									return res.status(400).send({
-										message: "Format Not Supported"
-									});
-								})
-								.pipe(fs.createWriteStream(`./downloads/${ytID}.${format}`));
-							});
-						}
-						else{
-							stream.pipe(fs.createWriteStream(`./downloads/${ytID}.mp4`));
-							stream.on("end", () => {
-								youtube.getVideo(ytURL).then(video => {
-									qr.toFile(`./downloads/${ytID}.png`, `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`, {errorCorrectionLevel: 'H'}, function(err) {
-										if (err) {
-											return res.status(500).send({
-												message: "QR Code Failed To Send"
-											})
-										}
-										let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
-										https.get(thumb, (r) => {
-											if (r.statusCode === 404) thumb = `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg`
+	const ytID = youtube_parser(ytURL);
+	const jsonPath = `./downloads/${ytID}-${format}.json`
+	const urlPath = `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`
 
-											getAverageColor(thumb)
-											.then(color => {
-												const edit = {
-													videoId: video.id,
-													videoTitle: video.title,
-													thumbnail: {image: thumb, average: color},
-													url: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-													qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
-													channel: video.channel.title
-												};
-												const jsonStr = JSON.stringify(edit);
-												fs.writeFileSync(`./downloads/${ytID}-${format}.json`, jsonStr);
-												console.log(`(${ytID}) ${format} done!`);
-												return res.status(200).send(edit);
-											});
-										});
-									});
-								});
-							});	
-						}
-						stream.on("error", err => {
-							console.error(err);
-							return res.status(500).send({
-								message: "Error while trying to get video"
-							});
-						});
-					}
-				})
-				.catch(err => {
-					console.log(err);
-					return res.status(400).send({
-						message: "Not A Valid Youtube Video URL Or Video ID"
-					});
-				});
-			}
-			else return res.status(400).send({
-				message: "Not A Valid Youtube Video URL Or Video ID"
-			});
-		}
-		else{
-			fs.readFile(`./downloads/${youtube_parser(ytURL)}-${format}.json`, "utf8" , async (err, data) => {
+	if(!ytID) return res.status(400).send({
+		message: "Not A Valid Youtube Video URL Or Video ID"
+	});
+
+	fs.access(`./downloads/${youtube_parser(ytURL)}-${format}.json`, fs.F_OK, async (err) => {
+		if (!err) {
+			fs.readFile(jsonPath, "utf8" , async (err, data) => {
 				if(err) return res.status(500).send({
 					message: "Failed To Read Contents Of JSON"
 				});
+
 				const decoded = await JSON.parse(data)
-				console.log(`(${youtube_parser(ytURL)}) cached ${format} sent!`);
+
+				console.log(`(${ytID}) cached ${format} sent!`);
+
 				return res.status(200).send(decoded);
+			});
+		}
+	});
+
+	let info = await ytdl.getInfo(ytURL)
+	.catch(err => {
+		console.log(err);
+		return res.status(500).send({
+			message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
+		});
+	});
+
+	if(info.statusCode) return; //video failed to fetch
+
+	const video = info.videoDetails
+
+	const Duration = video.lengthSeconds
+	if(Duration>1200 & !nolimit) return res.status(413).send({
+		message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
+	});
+
+	console.log(`downloading ${ytID} ${format}...`);
+
+	const stream = ytdl.downloadFromInfo(info,{
+		quality: 'highestaudio', 
+		filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
+	});
+
+	if(format === "mp4"){
+		stream.pipe(fs.createWriteStream(`./downloads/${ytID}.mp4`));
+		stream.on("end", () => qr.toFile(`./downloads/${ytID}.png`, urlPath, {errorCorrectionLevel: 'H'}, async (err) => {
+			if (err) return res.status(500).send({
+				message: "QR Code Failed To Send"
+			});
+
+			let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
+			https.get(thumb, (r) => {
+				thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
+
+				getAverageColor(thumb)
+				.then(color => {
+					const edit = {
+						videoId: video.videoId,
+						videoUrl: video.video_url,
+						videoTitle: video.title,
+						thumbnail: {image: thumb, average: color},
+						url: urlPath,
+						qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
+						channel: video.author.name
+					};
+
+					const jsonStr = JSON.stringify(edit);
+					fs.writeFileSync(jsonPath, jsonStr);
+
+					console.log(`(${ytID}) ${format} done!`);
+
+					return res.status(200).send(edit);
+				});
+			});
+		}));	
+		return;
+	}
+
+	stream.on("response", () => {
+		ffmpeg({source: stream})
+		.toFormat(format)
+		.on("end", () => qr.toFile(`./downloads/${ytID}.png`, urlPath, {errorCorrectionLevel: 'H'}, (err) => {
+			if (err) return res.status(500).send({
+				message: "QR Code Failed To Send"
+			});
+
+			let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
+			https.get(thumb, (r) => {
+				thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
+
+				getAverageColor(thumb)
+				.then(color => {
+					const edit = {
+						videoId: video.videoId,
+						videoUrl: video.video_url,
+						videoTitle: video.title,
+						thumbnail: {image: thumb, average: color},
+						url: urlPath,
+						qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
+						channel: video.author.name
+					};
+
+					const jsonStr = JSON.stringify(edit);
+					fs.writeFileSync(jsonPath, jsonStr);
+
+					console.log(`(${ytID}) ${format} done!`);
+
+					return res.status(200).send(edit);
+				});
+			});
+		}))
+		.on("error", err => {
+			console.error(err.message);
+
+			fs.unlink(`./downloads/${ytID}.${format}`, err => {
+				if(err) console.error(err);
+			});
+			return res.status(400).send({
+				message: "Format Not Supported"
+			});
+		})
+		.pipe(fs.createWriteStream(`./downloads/${ytID}.${format}`));
+	});
+
+	stream.on("error", err => {
+		console.error(err);
+
+		return res.status(500).send({
+			message: "Error while trying to get video"
+		});
+	});
+});
+
+app.get("/discord", (req, res) => {
+	const id = req.query.id;
+	fs.readFile(`./downloads/${id}-mp3.json`, "utf8" , async (err, data) => {
+		if (err) {
+			return res.status(400).send({
+				message: "Downloaded Video Not Found"
+			})
+		}
+
+		const decoded = await JSON.parse(data)
+
+		const att = new AttachmentBuilder()
+			.setName(`${decoded.videoTitle}.mp3`)
+			.setFile(`./downloads/${id}.mp3`);
+
+		try{
+			const message = await webhookClient.send({
+				content: "",
+				username: 'YTDL',
+				files: [att]
+			})
+
+			console.log(`(${id}) cached mp3 sent to discord!`);
+			return res.status(200).send({
+				url: message.attachments[0].url
+			});
+		}
+		catch(err) {
+			return res.status(500).send({
+				message: err.message
 			});
 		}
 	});
 });
 
-app.get("/stream", (req, res) => {
+let streamers = {};
+const stop = (id) => {
+    if (streamers[id]) {
+        streamers[id].astream.destroy();
+        streamers[id].process.kill("SIGKILL");
+        delete streamers[id];
+    }
+};
+app.get("/stream", async (req, res) => {
 	const link = req.query.link;
 	const id = youtube_parser(link);
-	if (!link || !id) return res.status(400).send("Not A Valid Youtube Video URL Or Video ID");
-	const check = req.headers['sec-fetch-dest'] === 'video';
+    if (!link || !id) {
+        return res.status(400).json({
+			message: "Not A Valid Youtube Video URL Or Video ID"
+		});
+    }
+
+    try {
+        const info = await ytdl.getInfo(link);
+		const video = info.videoDetails;
+        const id = video.videoId;
+		
+		let thumb = `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
+		https.get(thumb, (r) => {
+			thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : thumb;
+
+			getAverageColor(thumb)
+			.then(color => {
+				return res.status(200).json({
+					videoId: id,
+					videoUrl: video.video_url,
+					videoTitle: video.title,
+					videoDuration: video.lengthSeconds,
+					thumbnail: {image: thumb, average: color},
+					url: `https://vs.substuff.org/api/ytdl/stream/audio?id=${id}`,
+					channel: video.author.name
+				});
+			});
+		});
+    } catch (err) {
+        console.log(err);
+		return res.status(500).send({
+			message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
+		});
+    }
+});
+
+app.get("/stream/audio", (req, res) => {
+	const id = req.query.id;
+
+	if (!id) return res.status(400).json({ error: "Missing video ID" });
+
+	const link = `https://www.youtube.com/watch?v=${id}`;
 
 	res.setHeader('Content-Type', 'audio/mpeg');
 
-	const timeout = setTimeout(() => {
-		const astream = ytdl(link,{
-			quality: 'highestaudio', 
-			filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
-		});
-		astream.on("response", () => {
-			new ffmpeg({source: astream})
-			.on("end", () => {
-				if(check) console.log(`(${id}) stream processed`)
-			})
-			.on("error", err => {
-				if(err.message !== "Output stream closed") console.error(err);
-			})
-			.format('mp3')
-			.audioCodec('libmp3lame')
-			.pipe(res, { end: true })
-		});
-		astream.on("error", err => {
-			res.setHeader('Content-Type', 'text/html');
-			console.error(err);
-			return res.status(500).send("Error while trying to get video");
-		});
-	});
-	req.on("close",() => clearTimeout(timeout));
+	if (!streamers[id]) {
+        console.log(`Starting new stream for: ${id}`);
+
+        const astream = ytdl(link, {
+            quality: "highestaudio",
+            filter: (format) => format.container === "mp4" && format.hasAudio && format.hasVideo
+        });
+
+        const ffmpegStream = ffmpeg(astream)
+            .format("mp3")
+            .audioCodec("libmp3lame")
+            .audioBitrate(192)
+            .on("end", () => {
+                console.log(`[${id}] Stream processed`);
+                stop(id);
+            })
+            .on("error", (err) => {
+                if (err.message !== "ffmpeg was killed with signal SIGKILL") {
+					console.error(err);
+				}
+                stop(id);
+            });
+		
+        const passThrough = new PassThrough();
+		const bufferChunks = [];
+        ffmpegStream.pipe(passThrough);
+
+		passThrough.on("data", (chunk) => {
+            bufferChunks.push(chunk);
+        });
+
+        streamers[id] = {
+            astream,
+            process: ffmpegStream,
+            output: passThrough,
+			bufferChunks,
+            listeners: 0
+        };
+    }
+
+    streamers[id].listeners++;
+    
+	for (const chunk of streamers[id].bufferChunks) {
+        res.write(chunk);
+    }
+
+    streamers[id].output.pipe(res);
+
+	console.log(`[${id}] Listener Joined: ${streamers[id].listeners}`);
+
+    req.on("close", () => {
+        streamers[id].listeners--;
+		console.log(`[${id}] Listener Left, Remaining: ${streamers[id].listeners}`);
+        if (streamers[id].listeners <= 0) stop(id);
+    });
 });
 
 app.get("/playlist", (req, res) => {
