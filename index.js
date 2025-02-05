@@ -211,11 +211,12 @@ app.get("/discord", (req, res) => {
 });
 
 let streamers = {};
-const stop = (id) => {
+let cache = {};
+const stop = (id,del) => {
     if (streamers[id]) {
-        streamers[id].astream.destroy();
+        streamers[id].stream.destroy();
         streamers[id].process.kill("SIGKILL");
-        delete streamers[id];
+		if (streamers[id].progress !== 1 || del) delete streamers[id];
     }
 };
 app.get("/stream", async (req, res) => {
@@ -257,7 +258,7 @@ app.get("/stream", async (req, res) => {
     }
 });
 
-app.get("/stream/audio", (req, res) => {
+app.get("/stream/audio", async (req, res) => {
 	const id = req.query.id;
 
 	if (!id) return res.status(400).json({ error: "Missing video ID" });
@@ -266,27 +267,57 @@ app.get("/stream/audio", (req, res) => {
 
 	res.setHeader('Content-Type', 'audio/mpeg');
 
+	if (cache[id]) {
+		console.log(`Serving cached audio for: ${id}`);
+		const cachedBuffer = Buffer.concat(cache[id].buffer);
+
+		return res.end(cachedBuffer);
+	}
+
 	if (!streamers[id]) {
         console.log(`Starting new stream for: ${id}`);
 
-        const astream = ytdl(link, {
+		const info = await ytdl.getInfo(link);
+		const videoDuration = info.videoDetails.lengthSeconds;
+        const stream = ytdl.downloadFromInfo(info, {
             quality: "highestaudio",
             filter: (format) => format.container === "mp4" && format.hasAudio && format.hasVideo
         });
 
-        const ffmpegStream = ffmpeg(astream)
+        const ffmpegStream = ffmpeg(stream)
             .format("mp3")
             .audioCodec("libmp3lame")
             .audioBitrate(192)
             .on("end", () => {
                 console.log(`[${id}] Stream processed`);
-                stop(id);
+				Object.keys(cache).forEach(key => {
+					clearTimeout(cache[key].timeout);
+					console.log(`Cleared cache timeout for ${key}`);
+					delete cache[key];
+				});
+
+                cache[id] = {
+					buffer: streamers[id].bufferChunks,
+					timeout: setTimeout(() => {
+						console.log(`Cache expired for: ${id}`);
+						delete cache[id];
+					}, Math.round( Math.max(900, Math.min(videoDuration, 7200)) ) * 1000)
+				}
+				stop(id,true);
             })
+			.on("progress", progress => {
+				if (streamers[id]) { 
+					const time = progress.timemark;
+					const [hours, minutes, seconds] = time.split(':');
+					const totalSeconds = Math.round( (+hours) * 60 * 60 + (+minutes) * 60 + (+seconds) );
+					streamers[id].progress = totalSeconds/videoDuration;
+				}
+			})
             .on("error", (err) => {
                 if (err.message !== "ffmpeg was killed with signal SIGKILL") {
 					console.error(err);
+					stop(id,true);
 				}
-                stop(id);
             });
 		
         const passThrough = new PassThrough();
@@ -298,28 +329,31 @@ app.get("/stream/audio", (req, res) => {
         });
 
         streamers[id] = {
-            astream,
+            stream,
             process: ffmpegStream,
             output: passThrough,
+			progress: 0,
 			bufferChunks,
             listeners: 0
         };
     }
 
-    streamers[id].listeners++;
+    if (streamers[id].progress !== 1) {
+		streamers[id].listeners++;
     
-	for (const chunk of streamers[id].bufferChunks) {
-        res.write(chunk);
-    }
+		for (const chunk of streamers[id].bufferChunks) {
+			res.write(chunk);
+		}
 
-    streamers[id].output.pipe(res);
-
-	console.log(`[${id}] Listener Joined: ${streamers[id].listeners}`);
+		streamers[id].output.pipe(res);
+		console.log(`[${id}] Listener Joined: ${streamers[id].listeners}`);
+	}
 
     req.on("close", () => {
         streamers[id].listeners--;
+		if (streamers[id].listeners < 0) streamers[id].listeners = 0;
 		console.log(`[${id}] Listener Left, Remaining: ${streamers[id].listeners}`);
-        if (streamers[id].listeners <= 0) stop(id);
+        if (streamers[id].listeners <= 0 && streamers[id].progress <= 0.9) stop(id);
     });
 });
 
