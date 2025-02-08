@@ -26,6 +26,37 @@ function youtube_parser(url){
 	return ytdl.validateURL(url) ? ytdl.getURLVideoID(url) : false
 }
 
+const sendData = (res,video,ytID,format,urlPath,jsonPath) => qr.toFile(`./downloads/${ytID}.png`, urlPath, {errorCorrectionLevel: 'H'}, (err) => {
+	if (err) return res.status(500).send({
+		message: "QR Code Failed To Send"
+	});
+
+	let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
+	https.get(thumb, (r) => {
+		thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
+
+		getAverageColor(thumb)
+		.then(color => {
+			const edit = {
+				videoId: video.videoId,
+				videoUrl: video.video_url,
+				videoTitle: video.title,
+				thumbnail: {image: thumb, average: color},
+				url: urlPath,
+				qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
+				channel: video.author.name
+			};
+
+			const jsonStr = JSON.stringify(edit);
+			fs.writeFileSync(jsonPath, jsonStr);
+
+			console.log(`(${ytID}) ${format} done!`);
+
+			return res.status(200).send(edit);
+		});
+	});
+});
+
 app.get("/download/:format?", async (req, res) => {
 	const ytURL = req.query.link;
 	const nolimit = req.query.nolimit=="true";
@@ -58,101 +89,41 @@ app.get("/download/:format?", async (req, res) => {
 
 				return res.status(200).send(decoded);
 			});
+			return;
 		}
-	});
 
-	let info = await ytdl.getInfo(ytURL)
-	.catch(err => {
-		console.log(err);
-		return res.status(500).send({
-			message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
+		let info = await ytdl.getInfo(ytURL)
+		.catch(err => {
+			console.log(err);
+			return res.status(500).send({
+				message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
+			});
 		});
-	});
 
-	if(info.statusCode) return; //video failed to fetch
+		if(info.statusCode) return; //video failed to fetch
 
-	const video = info.videoDetails
+		const video = info.videoDetails
 
-	const Duration = video.lengthSeconds
-	if(Duration>1200 & !nolimit) return res.status(413).send({
-		message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
-	});
+		const Duration = video.lengthSeconds
+		if(Duration>1200 & !nolimit) return res.status(413).send({
+			message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
+		});
 
-	console.log(`downloading ${ytID} ${format}...`);
+		console.log(`downloading ${ytID} ${format}...`);
 
-	const stream = ytdl.downloadFromInfo(info,{
-		quality: 'highestaudio', 
-		filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
-	});
+		const stream = ytdl.downloadFromInfo(info,{
+			quality: 'highestaudio', 
+			filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
+		});
 
-	if(format === "mp4"){
-		stream.pipe(fs.createWriteStream(`./downloads/${ytID}.mp4`));
-		stream.on("end", () => qr.toFile(`./downloads/${ytID}.png`, urlPath, {errorCorrectionLevel: 'H'}, async (err) => {
-			if (err) return res.status(500).send({
-				message: "QR Code Failed To Send"
-			});
-
-			let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
-			https.get(thumb, (r) => {
-				thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
-
-				getAverageColor(thumb)
-				.then(color => {
-					const edit = {
-						videoId: video.videoId,
-						videoUrl: video.video_url,
-						videoTitle: video.title,
-						thumbnail: {image: thumb, average: color},
-						url: urlPath,
-						qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
-						channel: video.author.name
-					};
-
-					const jsonStr = JSON.stringify(edit);
-					fs.writeFileSync(jsonPath, jsonStr);
-
-					console.log(`(${ytID}) ${format} done!`);
-
-					return res.status(200).send(edit);
-				});
-			});
-		}));	
-		return;
-	}
-
-	stream.on("response", () => {
-		ffmpeg({source: stream})
+		if(format === "mp4"){
+			stream.pipe(fs.createWriteStream(`./downloads/${ytID}.mp4`));
+			stream.on("end", () => sendData(res,video,ytID,format,urlPath,jsonPath));	
+			return;
+		}
+		ffmpeg(stream)
 		.toFormat(format)
-		.on("end", () => qr.toFile(`./downloads/${ytID}.png`, urlPath, {errorCorrectionLevel: 'H'}, (err) => {
-			if (err) return res.status(500).send({
-				message: "QR Code Failed To Send"
-			});
-
-			let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
-			https.get(thumb, (r) => {
-				thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
-
-				getAverageColor(thumb)
-				.then(color => {
-					const edit = {
-						videoId: video.videoId,
-						videoUrl: video.video_url,
-						videoTitle: video.title,
-						thumbnail: {image: thumb, average: color},
-						url: urlPath,
-						qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
-						channel: video.author.name
-					};
-
-					const jsonStr = JSON.stringify(edit);
-					fs.writeFileSync(jsonPath, jsonStr);
-
-					console.log(`(${ytID}) ${format} done!`);
-
-					return res.status(200).send(edit);
-				});
-			});
-		}))
+		.on("end", () => sendData(res,video,ytID,format,urlPath,jsonPath))
 		.on("error", err => {
 			console.error(err.message);
 
@@ -164,13 +135,13 @@ app.get("/download/:format?", async (req, res) => {
 			});
 		})
 		.pipe(fs.createWriteStream(`./downloads/${ytID}.${format}`));
-	});
 
-	stream.on("error", err => {
-		console.error(err);
+		stream.on("error", err => {
+			console.error(err);
 
-		return res.status(500).send({
-			message: "Error while trying to get video"
+			return res.status(500).send({
+				message: "Error while trying to get video"
+			});
 		});
 	});
 });
@@ -261,7 +232,7 @@ app.get("/stream", async (req, res) => {
 app.get("/stream/audio", async (req, res) => {
 	const id = req.query.id;
 
-	if (!id) return res.status(400).json({ error: "Missing video ID" });
+	if (!id) return res.status(400).json({ message: "Missing video ID" });
 
 	const link = `https://www.youtube.com/watch?v=${id}`;
 
@@ -353,7 +324,7 @@ app.get("/stream/audio", async (req, res) => {
         streamers[id].listeners--;
 		if (streamers[id].listeners < 0) streamers[id].listeners = 0;
 		console.log(`[${id}] Listener Left, Remaining: ${streamers[id].listeners}`);
-        if (streamers[id].listeners <= 0 && streamers[id].progress <= 0.9) stop(id);
+        if (streamers[id].listeners <= 0 && streamers[id].progress <= 0.99) stop(id);
     });
 });
 
