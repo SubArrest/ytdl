@@ -1,8 +1,8 @@
 const fs = require("fs");
-const https = require("https");
+const { get: httpsGet } = require("https");
 const ytdl = require("@distube/ytdl-core");
 const YouTube = require("simple-youtube-api")
-const qr = require("qrcode");
+const { toFile: qrToFile } = require("qrcode");
 const { getAverageColor } = require("fast-average-color-node");
 const { AttachmentBuilder, WebhookClient } = require("discord.js");
 const { PassThrough } = require("stream");
@@ -26,13 +26,13 @@ function youtube_parser(url){
 	return ytdl.validateURL(url) ? ytdl.getURLVideoID(url) : false
 }
 
-const sendData = (res,video,ytID,format,urlPath,jsonPath) => qr.toFile(`./downloads/${ytID}.png`, urlPath, {errorCorrectionLevel: 'H'}, (err) => {
+const sendData = (res,video,ytID,format,urlPath,jsonPath) => qrToFile(`./downloads/${ytID}.png`, urlPath, {errorCorrectionLevel: 'H'}, (err) => {
 	if (err) return res.status(500).send({
 		message: "QR Code Failed To Send"
 	});
 
 	let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
-	https.get(thumb, (r) => {
+	httpsGet(thumb, (r) => {
 		thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
 
 		getAverageColor(thumb)
@@ -205,7 +205,7 @@ app.get("/stream", async (req, res) => {
         const id = video.videoId;
 		
 		let thumb = `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
-		https.get(thumb, (r) => {
+		httpsGet(thumb, (r) => {
 			thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : thumb;
 
 			getAverageColor(thumb)
