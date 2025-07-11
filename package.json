@@ -17,13 +17,18 @@
   },
   "homepage": "https://github.com/SubArrest/ytdl#readme",
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.0",
-    "discord.js": "^14.15.3",
+    "@distube/ytdl-core": "^4.16.12",
+    "@nuclearplayer/ytdl-core": "^4.16.13",
+    "discord.js": "^14.18.0",
     "dotenv": "^16.0.3",
     "express": "^4.19.2",
     "fast-average-color-node": "^2.7.0",
     "fluent-ffmpeg": "^2.1.2",
+    "imgur": "^2.4.3",
     "qrcode": "^1.5.3",
-    "simple-youtube-api": "^5.2.1"
-  }
+    "sequelize": "^6.37.7",
+    "simple-youtube-api": "^5.2.1",
+    "sqlite3": "^5.1.7"
+  },
+  "type": "module"
 }

@@ -1,26 +1,32 @@
-const fs = require("fs");
-const { get: httpsGet } = require("https");
-const ytdl = require("@distube/ytdl-core");
-const YouTube = require("simple-youtube-api")
-const { toFile: qrToFile } = require("qrcode");
-const { getAverageColor } = require("fast-average-color-node");
-const { AttachmentBuilder, WebhookClient } = require("discord.js");
-const { PassThrough } = require("stream");
-const ffmpeg = require("fluent-ffmpeg");
+import { writeFileSync, access, F_OK, readFile, createWriteStream, unlink } from "fs";
+import { get as httpsGet } from "https";
+
+import ytdl from "@distube/ytdl-core";
+//import ytdl from "@nuclearplayer/ytdl-core";
+
+import YouTube from "simple-youtube-api";
+import { ImgurClient } from "imgur";
+import { toFile as qrToFile } from "qrcode";
+import { getAverageColor } from "fast-average-color-node";
+import { PassThrough } from "stream";
+import ffmpeg from "fluent-ffmpeg";
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
-const { config } = require("dotenv");
+import { config } from "dotenv";
 config({
 	path: "./.env"
 });
-const express = require("express");
+import express from "express";
 const app = express();
 
 const port = process.env.PORT || 3000;
 const token = process.env.TOKEN;
 
-const webhookClient = new WebhookClient({ id: process.env.WEBHOOKID, token: process.env.WEBHOOKTOKEN });
-
 const youtube = new YouTube(token);
+
+const imgur = new ImgurClient({
+	clientId: process.env.IMGUR_CLIENT_ID,
+	clientSecret: process.env.IMGUR_CLIENT_SECRET
+});
 
 function youtube_parser(url){
 	return ytdl.validateURL(url) ? ytdl.getURLVideoID(url) : false
@@ -48,7 +54,7 @@ const sendData = (res,video,ytID,format,urlPath,jsonPath) => qrToFile(`./downloa
 			};
 
 			const jsonStr = JSON.stringify(edit);
-			fs.writeFileSync(jsonPath, jsonStr);
+			writeFileSync(jsonPath, jsonStr);
 
 			console.log(`(${ytID}) ${format} done!`);
 
@@ -76,9 +82,9 @@ app.get("/download/:format?", async (req, res) => {
 		message: "Not A Valid Youtube Video URL Or Video ID"
 	});
 
-	fs.access(`./downloads/${youtube_parser(ytURL)}-${format}.json`, fs.F_OK, async (err) => {
+	access(jsonPath, F_OK, async (err) => {
 		if (!err) {
-			fs.readFile(jsonPath, "utf8" , async (err, data) => {
+			readFile(jsonPath, "utf8" , async (err, data) => {
 				if(err) return res.status(500).send({
 					message: "Failed To Read Contents Of JSON"
 				});
@@ -117,7 +123,7 @@ app.get("/download/:format?", async (req, res) => {
 		});
 
 		if(format === "mp4"){
-			stream.pipe(fs.createWriteStream(`./downloads/${ytID}.mp4`));
+			stream.pipe(createWriteStream(`./downloads/${ytID}.mp4`));
 			stream.on("end", () => sendData(res,video,ytID,format,urlPath,jsonPath));	
 			return;
 		}
@@ -127,14 +133,14 @@ app.get("/download/:format?", async (req, res) => {
 		.on("error", err => {
 			console.error(err.message);
 
-			fs.unlink(`./downloads/${ytID}.${format}`, err => {
+			unlink(`./downloads/${ytID}.${format}`, err => {
 				if(err) console.error(err);
 			});
 			return res.status(400).send({
 				message: "Format Not Supported"
 			});
 		})
-		.pipe(fs.createWriteStream(`./downloads/${ytID}.${format}`));
+		.pipe(createWriteStream(`./downloads/${ytID}.${format}`));
 
 		stream.on("error", err => {
 			console.error(err);
@@ -143,41 +149,6 @@ app.get("/download/:format?", async (req, res) => {
 				message: "Error while trying to get video"
 			});
 		});
-	});
-});
-
-app.get("/discord", (req, res) => {
-	const id = req.query.id;
-	fs.readFile(`./downloads/${id}-mp3.json`, "utf8" , async (err, data) => {
-		if (err) {
-			return res.status(400).send({
-				message: "Downloaded Video Not Found"
-			})
-		}
-
-		const decoded = await JSON.parse(data)
-
-		const att = new AttachmentBuilder()
-			.setName(`${decoded.videoTitle}.mp3`)
-			.setFile(`./downloads/${id}.mp3`);
-
-		try{
-			const message = await webhookClient.send({
-				content: "",
-				username: 'YTDL',
-				files: [att]
-			})
-
-			console.log(`(${id}) cached mp3 sent to discord!`);
-			return res.status(200).send({
-				url: message.attachments[0].url
-			});
-		}
-		catch(err) {
-			return res.status(500).send({
-				message: err.message
-			});
-		}
 	});
 });
 
@@ -359,6 +330,58 @@ app.get("/playlist", (req, res) => {
 		});
 	});
 })
+
+app.get("/imgur", async (req, res) => {
+	const img = req.query.img;
+	const id = req.query.id;
+	const format = req.query.format;
+	if(!img) return res.status(400).send({
+		message: "Image Not Provided"
+	});
+	
+	const response = await imgur.upload({
+		image: img,
+		title: 'YTDL Thumb Upload'
+	});
+
+	if(response.data == "Bad Request") return res.status(400).send({
+		message: "Invalid Image"
+	});
+
+	if(id && format) {
+		const jsonPath = `./downloads/${id}-${format}.json`;
+		access(jsonPath, F_OK, async (err) => {
+			if(!err) {
+				readFile(jsonPath, "utf8" , async (err, data) => {
+					if(err) return res.status(500).send({
+						message: "Failed To Read Contents Of JSON"
+					});
+
+					const decoded = await JSON.parse(data);
+
+					if(decoded.imgur) return res.status(200).send({
+						url: decoded.imgur
+					});
+
+					decoded.imgur = response.data.link;
+
+					const jsonStr = JSON.stringify(decoded);
+					writeFileSync(jsonPath, jsonStr);
+
+					console.log(`(${id}) ${format} modified with imgur link!`);
+
+					return res.status(200).send({
+						image: response.data.link
+					});
+				});
+			} else return res.status(200).send({
+				image: response.data.link
+			});
+		});
+	} else return res.status(200).send({
+		image: response.data.link
+	});
+});
 
 app.use("/downloads", express.static("./downloads"));
 

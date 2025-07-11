@@ -4,3 +4,4 @@ test/
 .env
 process.json
 .DS_Store
+removeDownloads
