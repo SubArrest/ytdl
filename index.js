@@ -1,4 +1,5 @@
-import { writeFileSync, access, F_OK, readFile, createWriteStream, unlink } from "fs";
+import { Sequelize, DataTypes } from "sequelize";
+import { createWriteStream, unlink } from "fs";
 import { get as httpsGet } from "https";
 
 import ytdl from "@distube/ytdl-core";
@@ -18,10 +19,43 @@ config({
 import express from "express";
 const app = express();
 
+const downloadsPath = "./downloads"
+
 const port = process.env.PORT || 3000;
 const token = process.env.TOKEN;
 
 const youtube = new YouTube(token);
+
+const sql = new Sequelize({
+	dialect: "sqlite",
+	storage: "./videos.sqlite",
+	logging: false
+});
+
+const videosDB = sql.define(
+	"Video",
+	{
+		pk: {
+			type: DataTypes.STRING,
+			allowNull: false,
+			primaryKey: true
+		},
+		id: { type: DataTypes.STRING, allowNull: false },
+		format: { type: DataTypes.STRING, allowNull: false },
+		qr: { type: DataTypes.STRING, allowNull: false },
+		videourl: { type: DataTypes.STRING, allowNull: false },
+		youtubeurl: { type: DataTypes.STRING, allowNull: false },
+		title: { type: DataTypes.STRING, allowNull: false },
+		channel: { type: DataTypes.STRING, allowNull: false },
+		image: { type: DataTypes.STRING, allowNull: false },
+		color: { type: DataTypes.STRING, allowNull: false },
+		discord: { type: DataTypes.STRING, allowNull: true },
+		imgur: { type: DataTypes.STRING, allowNull: true },
+	},
+	{ updatedAt: false }
+);
+
+videosDB.sync();
 
 const imgur = new ImgurClient({
 	clientId: process.env.IMGUR_CLIENT_ID,
@@ -32,36 +66,44 @@ function youtube_parser(url){
 	return ytdl.validateURL(url) ? ytdl.getURLVideoID(url) : false
 }
 
-const sendData = (res,video,ytID,format,urlPath,jsonPath) => qrToFile(`./downloads/${ytID}.png`, urlPath, {errorCorrectionLevel: 'H'}, (err) => {
-	if (err) return res.status(500).send({
-		message: "QR Code Failed To Send"
-	});
+const sendData = (res,video,ytID,format) => {
+	qrToFile(`${downloadsPath}/${ytID}-${format}.png`, `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`, {errorCorrectionLevel: 'H'}, err => {
+		if (err) return res.status(500).send({
+			message: "QR Code Failed To Send"
+		});
 
-	let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
-	httpsGet(thumb, (r) => {
-		thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
+		let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
+		httpsGet(thumb, r => {
+			thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
 
-		getAverageColor(thumb)
-		.then(color => {
-			const edit = {
-				videoId: video.videoId,
-				videoUrl: video.video_url,
-				videoTitle: video.title,
-				thumbnail: {image: thumb, average: color},
-				url: urlPath,
-				qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.png`,
-				channel: video.author.name
-			};
+			getAverageColor(thumb)
+			.then(async color => {
+				const v = await videosDB.create({
+					pk: `${format}-${video.videoId}`,
+					id: video.videoId,
+					format: format,
+					qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}-${format}.png`,
+					videourl: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
+					youtubeurl: video.video_url,
+					title: video.title,
+					channel: video.author.name,
+					image: thumb,
+					color: color.rgb
+				});
 
-			const jsonStr = JSON.stringify(edit);
-			writeFileSync(jsonPath, jsonStr);
+				console.log(`(${ytID}) ${format} done!`);
 
-			console.log(`(${ytID}) ${format} done!`);
+				const out = v.get();
+				delete out.pk;
+				delete out.createdAt;
+				delete out.discord;
+				delete out.imgur;
 
-			return res.status(200).send(edit);
+				return res.status(200).json(out);
+			});
 		});
 	});
-});
+};
 
 app.get("/download/:format?", async (req, res) => {
 	const ytURL = req.query.link;
@@ -75,79 +117,78 @@ app.get("/download/:format?", async (req, res) => {
 	});
 
 	const ytID = youtube_parser(ytURL);
-	const jsonPath = `./downloads/${ytID}-${format}.json`
-	const urlPath = `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`
 
 	if(!ytID) return res.status(400).send({
 		message: "Not A Valid Youtube Video URL Or Video ID"
 	});
 
-	access(jsonPath, F_OK, async (err) => {
-		if (!err) {
-			readFile(jsonPath, "utf8" , async (err, data) => {
-				if(err) return res.status(500).send({
-					message: "Failed To Read Contents Of JSON"
-				});
+	const count = await videosDB.count({ where: { pk: `${format}-${ytID}` } });
 
-				const decoded = await JSON.parse(data)
+	if(count > 0) {
+		videosDB.findByPk(`${format}-${ytID}`).then(video => {
+			console.log(`(${ytID}) cached ${format} sent!`);
 
-				console.log(`(${ytID}) cached ${format} sent!`);
+			const out = video.get();
+			delete out.pk;
+			delete out.createdAt;
+			if(!out.discord) delete out.discord;
+			if(!out.imgur) delete out.imgur;
 
-				return res.status(200).send(decoded);
-			});
-			return;
-		}
-
-		let info = await ytdl.getInfo(ytURL)
-		.catch(err => {
-			console.log(err);
-			return res.status(500).send({
-				message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
-			});
+			res.status(200).json(out);
 		});
+		return;
+	}
 
-		if(info.statusCode) return; //video failed to fetch
-
-		const video = info.videoDetails
-
-		const Duration = video.lengthSeconds
-		if(Duration>1200 & !nolimit) return res.status(413).send({
-			message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
+	let info = await ytdl.getInfo(ytURL)
+	.catch(err => {
+		console.log(err);
+		return res.status(500).send({
+			message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
 		});
+	});
 
-		console.log(`downloading ${ytID} ${format}...`);
+	if(info.statusCode) return; //video failed to fetch
 
-		const stream = ytdl.downloadFromInfo(info,{
-			quality: 'highestaudio', 
-			filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
+	const video = info.videoDetails;
+
+	const Duration = video.lengthSeconds;
+	if(Duration>1200 & !nolimit) return res.status(413).send({
+		message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
+	});
+
+	console.log(`downloading ${ytID} ${format}...`);
+
+	const stream = ytdl.downloadFromInfo(info,{
+		quality: 'highestaudio', 
+		filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
+	});
+
+	if(format === "mp4"){
+		stream.pipe(createWriteStream(`${downloadsPath}/${ytID}.mp4`));
+		stream.on("end", () => sendData(res,video,ytID,format));	
+		return;
+	}
+
+	ffmpeg(stream)
+	.toFormat(format)
+	.on("end", () => sendData(res,video,ytID,format))
+	.on("error", err => {
+		console.error(err.message);
+
+		unlink(`${downloadsPath}/${ytID}.${format}`, err => {
+			if(err) console.error(err);
 		});
+		return res.status(400).send({
+			message: "Format Not Supported"
+		});
+	})
+	.pipe(createWriteStream(`${downloadsPath}/${ytID}.${format}`));
 
-		if(format === "mp4"){
-			stream.pipe(createWriteStream(`./downloads/${ytID}.mp4`));
-			stream.on("end", () => sendData(res,video,ytID,format,urlPath,jsonPath));	
-			return;
-		}
-		ffmpeg(stream)
-		.toFormat(format)
-		.on("end", () => sendData(res,video,ytID,format,urlPath,jsonPath))
-		.on("error", err => {
-			console.error(err.message);
+	stream.on("error", err => {
+		console.error(err);
 
-			unlink(`./downloads/${ytID}.${format}`, err => {
-				if(err) console.error(err);
-			});
-			return res.status(400).send({
-				message: "Format Not Supported"
-			});
-		})
-		.pipe(createWriteStream(`./downloads/${ytID}.${format}`));
-
-		stream.on("error", err => {
-			console.error(err);
-
-			return res.status(500).send({
-				message: "Error while trying to get video"
-			});
+		return res.status(500).send({
+			message: "Error while trying to get video"
 		});
 	});
 });
@@ -332,55 +373,53 @@ app.get("/playlist", (req, res) => {
 })
 
 app.get("/imgur", async (req, res) => {
-	const img = req.query.img;
-	const id = req.query.id;
-	const format = req.query.format;
-	if(!img) return res.status(400).send({
-		message: "Image Not Provided"
-	});
-	
-	const response = await imgur.upload({
-		image: img,
-		title: 'YTDL Thumb Upload'
-	});
+    const img = req.query.img;
+    const id = req.query.id;
+    const format = req.query.format;
+    if(!img) return res.status(400).send({
+        message: "Image Not Provided"
+    });
 
-	if(response.data == "Bad Request") return res.status(400).send({
-		message: "Invalid Image"
-	});
+    const count = await videosDB.count({ where: { pk: `${format}-${id}` } });
 
-	if(id && format) {
-		const jsonPath = `./downloads/${id}-${format}.json`;
-		access(jsonPath, F_OK, async (err) => {
-			if(!err) {
-				readFile(jsonPath, "utf8" , async (err, data) => {
-					if(err) return res.status(500).send({
-						message: "Failed To Read Contents Of JSON"
-					});
+    if(count > 0) {
+        videosDB.findByPk(`${format}-${id}`).then(async video => {
+            if(video.imgur) return res.status(200).send({
+                url: video.imgur
+            });
 
-					const decoded = await JSON.parse(data);
+            const response = await imgur.upload({
+                image: img,
+                title: 'YTDL Thumb Upload'
+            });
 
-					if(decoded.imgur) return res.status(200).send({
-						url: decoded.imgur
-					});
+            if(response.data == "Bad Request") return res.status(400).send({
+                message: "Invalid Image"
+            });
 
-					decoded.imgur = response.data.link;
+            video.imgur = response.data.link;
+            await video.save();
 
-					const jsonStr = JSON.stringify(decoded);
-					writeFileSync(jsonPath, jsonStr);
+            console.log(`(${id}) ${format} modified with imgur link!`);
 
-					console.log(`(${id}) ${format} modified with imgur link!`);
+            return res.status(200).send({
+                image: response.data.link
+            });
+        });
+    } else if(!id || !format) {
+        const response = await imgur.upload({
+            image: img,
+            title: 'YTDL Thumb Upload'
+        });
 
-					return res.status(200).send({
-						image: response.data.link
-					});
-				});
-			} else return res.status(200).send({
-				image: response.data.link
-			});
-		});
-	} else return res.status(200).send({
-		image: response.data.link
-	});
+        if(response.data == "Bad Request") return res.status(400).send({
+            message: "Invalid Image"
+        });
+
+        return res.status(200).send({
+            image: response.data.link
+        });
+    }
 });
 
 app.use("/downloads", express.static("./downloads"));
