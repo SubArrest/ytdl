@@ -7,7 +7,7 @@ import ytdl from "@distube/ytdl-core";
 
 import YouTube from "simple-youtube-api";
 import { ImgurClient } from "imgur";
-import { toFile as qrToFile } from "qrcode";
+import { toDataURL } from "qrcode";
 import { getAverageColor } from "fast-average-color-node";
 import { PassThrough } from "stream";
 import ffmpeg from "fluent-ffmpeg";
@@ -67,40 +67,34 @@ function youtube_parser(url){
 }
 
 const sendData = (res,video,ytID,format) => {
-	qrToFile(`${downloadsPath}/${ytID}-${format}.png`, `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`, {errorCorrectionLevel: 'H'}, err => {
-		if (err) return res.status(500).send({
-			message: "QR Code Failed To Send"
-		});
+	let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
+	httpsGet(thumb, r => {
+		thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
 
-		let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
-		httpsGet(thumb, r => {
-			thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
-
-			getAverageColor(thumb)
-			.then(async color => {
-				const v = await videosDB.create({
-					pk: `${format}-${video.videoId}`,
-					id: video.videoId,
-					format: format,
-					qr: `https://vs.substuff.org/api/ytdl/downloads/${ytID}-${format}.png`,
-					videourl: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-					youtubeurl: video.video_url,
-					title: video.title,
-					channel: video.author.name,
-					image: thumb,
-					color: color.rgb
-				});
-
-				console.log(`(${ytID}) ${format} done!`);
-
-				const out = v.get();
-				delete out.pk;
-				delete out.createdAt;
-				delete out.discord;
-				delete out.imgur;
-
-				return res.status(200).json(out);
+		getAverageColor(thumb)
+		.then(async color => {
+			const v = await videosDB.create({
+				pk: `${format}-${video.videoId}`,
+				id: video.videoId,
+				format: format,
+				qr: `https://vs.substuff.org/api/ytdl/qr/${ytID}.${format}`,
+				videourl: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
+				youtubeurl: video.video_url,
+				title: video.title,
+				channel: video.author.name,
+				image: thumb,
+				color: color.rgb
 			});
+
+			console.log(`(${ytID}) ${format} done!`);
+
+			const out = v.get();
+			delete out.pk;
+			delete out.createdAt;
+			delete out.discord;
+			delete out.imgur;
+
+			return res.status(200).json(out);
 		});
 	});
 };
@@ -397,6 +391,10 @@ app.get("/imgur", async (req, res) => {
                 message: "Invalid Image"
             });
 
+			if(typeof response.data.link !== "string") return res.status(400).send({
+                message: "Bad Request"
+            });
+
             video.imgur = response.data.link;
             await video.save();
 
@@ -420,6 +418,23 @@ app.get("/imgur", async (req, res) => {
             image: response.data.link
         });
     }
+});
+
+app.get("/qr/:file?", async (req, res) => {
+	let file = req.params.file;
+
+	if(!file) return res.status(400).send({
+        message: "Filename Not Provided"
+    });
+
+	res.header("Content-Type", 'image/png');
+
+	const img = await toDataURL(`https://vs.substuff.org/api/ytdl/downloads/${file}`,{ scale: 10 });
+	const out = Buffer.from(img.split(",")[1], 'base64');
+
+	res.header("Content-Length", img.length);
+
+	return res.status(200).send(out);
 });
 
 app.use("/downloads", express.static("./downloads"));
