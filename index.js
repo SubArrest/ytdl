@@ -51,11 +51,13 @@ const videosDB = sql.define(
 		color: { type: DataTypes.STRING, allowNull: false },
 		discord: { type: DataTypes.STRING, allowNull: true },
 		imgur: { type: DataTypes.STRING, allowNull: true },
+		lastUsed: { type: DataTypes.DATE, allowNull: false }
 	},
 	{ updatedAt: false }
 );
 
 videosDB.sync();
+//videosDB.sync({ alter: true });
 
 const imgur = new ImgurClient({
 	clientId: process.env.IMGUR_CLIENT_ID,
@@ -83,7 +85,8 @@ const sendData = (res,video,ytID,format) => {
 				title: video.title,
 				channel: video.author.name,
 				image: thumb,
-				color: color.rgb
+				color: color.rgb,
+				lastUsed: new Date(Date.now()).toISOString()
 			});
 
 			console.log(`(${ytID}) ${format} done!`);
@@ -91,6 +94,7 @@ const sendData = (res,video,ytID,format) => {
 			const out = v.get();
 			delete out.pk;
 			delete out.createdAt;
+			delete out.lastUsed;
 			delete out.discord;
 			delete out.imgur;
 
@@ -119,12 +123,16 @@ app.get("/download/:format?", async (req, res) => {
 	const count = await videosDB.count({ where: { pk: `${format}-${ytID}` } });
 
 	if(count > 0) {
-		videosDB.findByPk(`${format}-${ytID}`).then(video => {
+		videosDB.findByPk(`${format}-${ytID}`).then(async video => {
 			console.log(`(${ytID}) cached ${format} sent!`);
+
+			video.lastUsed = new Date(Date.now()).toISOString();
+			await video.save();
 
 			const out = video.get();
 			delete out.pk;
 			delete out.createdAt;
+			delete out.lastUsed;
 			if(!out.discord) delete out.discord;
 			if(!out.imgur) delete out.imgur;
 
