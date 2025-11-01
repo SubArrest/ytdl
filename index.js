@@ -2,16 +2,16 @@ import { Sequelize, DataTypes } from "sequelize";
 import { createWriteStream, unlink } from "fs";
 import { get as httpsGet } from "https";
 
-import ytdl from "@distube/ytdl-core";
-//import ytdl from "@nuclearplayer/ytdl-core";
+import { YtDlp } from 'ytdlp-nodejs';
+const ytdlp = new YtDlp();
+await ytdlp.downloadFFmpeg();
 
 import YouTube from "simple-youtube-api";
 import { ImgurClient } from "imgur";
 import { toDataURL } from "qrcode";
 import { getAverageColor } from "fast-average-color-node";
 import { PassThrough } from "stream";
-import ffmpeg from "fluent-ffmpeg";
-ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
+
 import { config } from "dotenv";
 config({
 	path: "./.env"
@@ -64,9 +64,33 @@ const imgur = new ImgurClient({
 	clientSecret: process.env.IMGUR_CLIENT_SECRET
 });
 
-function youtube_parser(url){
-	return ytdl.validateURL(url) ? ytdl.getURLVideoID(url) : false
-}
+const validQueryDomains = new Set([
+	"youtube.com",
+	"www.youtube.com",
+	"m.youtube.com",
+	"music.youtube.com",
+	"gaming.youtube.com",
+]);
+const validPathDomains = /^https?:\/\/(youtu\.be\/|(www\.)?youtube\.com\/(embed|v|shorts|live)\/)/;
+const idRegex = /^[a-zA-Z0-9-_]{11}$/;
+const validateID = id => idRegex.test(id.trim());
+
+function youtube_parser(link) {
+	const parsed = new URL(link.trim());
+	let id = parsed.searchParams.get("v");
+
+	if (validPathDomains.test(link.trim()) && !id) {
+		const paths = parsed.pathname.split("/");
+		id = parsed.host === "youtu.be" ? paths[1] : paths[2];
+	} else if (parsed.hostname && !validQueryDomains.has(parsed.hostname)) return false; //Not a YouTube domain
+
+	if (!id) return false; //No video id found
+
+	id = id.substring(0, 11);
+	if (!validateID(id)) return false; //Video id does not match expected format
+
+	return id;
+};
 
 const sendData = (res,video,ytID,format) => {
 	let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
@@ -76,14 +100,14 @@ const sendData = (res,video,ytID,format) => {
 		getAverageColor(thumb)
 		.then(async color => {
 			const v = await videosDB.create({
-				pk: `${format}-${video.videoId}`,
-				id: video.videoId,
+				pk: `${format}-${video.id}`,
+				id: video.id,
 				format: format,
 				qr: `https://vs.substuff.org/api/ytdl/qr/${ytID}.${format}`,
 				videourl: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-				youtubeurl: video.video_url,
+				youtubeurl: video.webpage_url,
 				title: video.title,
-				channel: video.author.name,
+				channel: video.channel,
 				image: thumb,
 				color: color.rgb,
 				lastUsed: new Date(Date.now()).toISOString()
@@ -102,6 +126,11 @@ const sendData = (res,video,ytID,format) => {
 		});
 	});
 };
+
+const formats = {
+	audio: ["aac","flac","mp3","m4a","opus","vorbis","wav","alac"],
+	video: ["mkv","mp4","ogg","webm","flv"]
+}
 
 app.get("/download/:format?", async (req, res) => {
 	const ytURL = req.query.link;
@@ -141,61 +170,57 @@ app.get("/download/:format?", async (req, res) => {
 		return;
 	}
 
-	let info = await ytdl.getInfo(ytURL)
-	.catch(err => {
-		console.log(err);
+	let filter = "mergevideo";
+	if (formats.audio.includes(format)) filter = "audioonly"
+	else if(!formats.video.includes(format)) return res.status(400).send({
+		message: "Format Not Supported"
+	});
+
+	let info;
+	try {
+		console.log(`(${ytID}) grabbing info...`);
+    	info = await ytdlp.getInfoAsync(ytURL);
+	} catch (err) {
+		console.log(err.message);
 		return res.status(500).send({
 			message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
 		});
-	});
+	}
 
-	if(info.statusCode) return; //video failed to fetch
+	if(!info) return; //video failed to fetch
 
-	const video = info.videoDetails;
-
-	const Duration = video.lengthSeconds;
+	const Duration = info.duration;
 	if(Duration>1200 & !nolimit) return res.status(413).send({
 		message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
 	});
 
 	console.log(`downloading ${ytID} ${format}...`);
 
-	const stream = ytdl.downloadFromInfo(info,{
-		quality: 'highestaudio', 
-		filter: format => format.container === 'mp4' && format.hasAudio && format.hasVideo
-	});
+	try{
+		await ytdlp.downloadAsync(ytURL,{
+			format: {
+				filter: filter,
+				type: format,
+				quality: 'highest',
+			},
+			output: `${downloadsPath}/${ytID}.${format}`
+		});
 
-	if(format === "mp4"){
-		stream.pipe(createWriteStream(`${downloadsPath}/${ytID}.mp4`));
-		stream.on("end", () => sendData(res,video,ytID,format));	
-		return;
-	}
-
-	ffmpeg(stream)
-	.toFormat(format)
-	.on("end", () => sendData(res,video,ytID,format))
-	.on("error", err => {
-		console.error(err.message);
-
+		sendData(res,info,ytID,format)
+	} catch(err) {
 		unlink(`${downloadsPath}/${ytID}.${format}`, err => {
 			if(err) console.error(err);
 		});
-		return res.status(400).send({
-			message: "Format Not Supported"
-		});
-	})
-	.pipe(createWriteStream(`${downloadsPath}/${ytID}.${format}`));
 
-	stream.on("error", err => {
 		console.error(err);
 
 		return res.status(500).send({
 			message: "Error while trying to get video"
 		});
-	});
+	}
 });
 
-let streamers = {};
+/*let streamers = {};
 let cache = {};
 const stop = (id,del) => {
     if (streamers[id]) {
@@ -340,7 +365,7 @@ app.get("/stream/audio", async (req, res) => {
 		console.log(`[${id}] Listener Left, Remaining: ${streamers[id].listeners}`);
         if (streamers[id].listeners <= 0 && streamers[id].progress <= 0.99) stop(id);
     });
-});
+});*/
 
 app.get("/playlist", (req, res) => {
 	const link = req.query.link;
