@@ -100,12 +100,12 @@ const sendData = (res,video,ytID,format) => {
 		getAverageColor(thumb)
 		.then(async color => {
 			const v = await videosDB.create({
-				pk: `${format}-${video.id}`,
-				id: video.id,
+				pk: `${format}-${ytID}`,
+				id: ytID,
 				format: format,
 				qr: `https://vs.substuff.org/api/ytdl/qr/${ytID}.${format}`,
 				videourl: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-				youtubeurl: video.webpage_url,
+				youtubeurl: video.youtubeurl,
 				title: video.title,
 				channel: video.channel,
 				image: thumb,
@@ -176,10 +176,19 @@ app.get("/download/:format?", async (req, res) => {
 		message: "Format Not Supported"
 	});
 
-	let info;
+	let video;
 	try {
-		console.log(`(${ytID}) grabbing info...`);
-    	info = await ytdlp.getInfoAsync(ytURL);
+    	const info = await youtube.getVideo(ytURL);
+
+		const dur = info.duration;
+		const duration = dur.seconds + (dur.minutes*60) + (dur.hours*60*60) + (dur.days*24*60*60);
+
+		video = {
+			title: info.title,
+			channel: info.channel.title,
+			youtubeurl: `https://www.youtube.com/watch?v=${info.id}`,
+			duration: duration
+		}
 	} catch (err) {
 		console.log(err.message);
 		return res.status(500).send({
@@ -187,10 +196,9 @@ app.get("/download/:format?", async (req, res) => {
 		});
 	}
 
-	if(!info) return; //video failed to fetch
+	if(!video) return; //video failed to fetch
 
-	const Duration = info.duration;
-	if(Duration>1200 & !nolimit) return res.status(413).send({
+	if(video.duration>1200 & !nolimit) return res.status(413).send({
 		message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
 	});
 
@@ -206,7 +214,7 @@ app.get("/download/:format?", async (req, res) => {
 			output: `${downloadsPath}/${ytID}.${format}`
 		});
 
-		sendData(res,info,ytID,format)
+		sendData(res,video,ytID,format)
 	} catch(err) {
 		unlink(`${downloadsPath}/${ytID}.${format}`, err => {
 			if(err) console.error(err);
