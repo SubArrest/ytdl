@@ -92,66 +92,89 @@ function youtube_parser(link) {
 	return id;
 };
 
-const sendData = (res,video,ytID,format) => {
-	let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`
+let downloadingCurrentList = [];
+
+const sendError = (res, code, message, ytID) => {
+	if (ytID) downloadingCurrentList = downloadingCurrentList.filter(id => id !== ytID);
+
+	return res.status(code).send({ message });
+};
+
+const sendData = (res, video, ytID, format) => {
+	let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`;
 	httpsGet(thumb, r => {
-		thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
+		thumb = r.statusCode === 404
+			? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg`
+			: thumb;
 
 		getAverageColor(thumb)
-		.then(async color => {
-			const v = await videosDB.create({
-				pk: `${format}-${ytID}`,
-				id: ytID,
-				format: format,
-				qr: `https://vs.substuff.org/api/ytdl/qr/${ytID}.${format}`,
-				videourl: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
-				youtubeurl: video.youtubeurl,
-				title: video.title,
-				channel: video.channel,
-				image: thumb,
-				color: color.rgb,
-				lastUsed: new Date(Date.now()).toISOString()
+			.then(async color => {
+				const v = await videosDB.create({
+					pk: `${format}-${ytID}`,
+					id: ytID,
+					format: format,
+					qr: `https://vs.substuff.org/api/ytdl/qr/${ytID}.${format}`,
+					videourl: `https://vs.substuff.org/api/ytdl/downloads/${ytID}.${format}`,
+					youtubeurl: video.youtubeurl,
+					title: video.title,
+					channel: video.channel,
+					image: thumb,
+					color: color.rgb,
+					lastUsed: new Date(Date.now()).toISOString()
+				});
+
+				console.log(`(${ytID}) ${format} done!`);
+
+				downloadingCurrentList = downloadingCurrentList.filter(id => id !== ytID);
+
+				const out = v.get();
+				delete out.pk;
+				delete out.createdAt;
+				delete out.lastUsed;
+				delete out.discord;
+				delete out.imgur;
+
+				return res.status(200).json(out);
+			})
+			.catch(err => {
+				console.error(err);
+				return sendError(res, 500, "Error while finalising video data", ytID);
 			});
-
-			console.log(`(${ytID}) ${format} done!`);
-
-			const out = v.get();
-			delete out.pk;
-			delete out.createdAt;
-			delete out.lastUsed;
-			delete out.discord;
-			delete out.imgur;
-
-			return res.status(200).json(out);
-		});
 	});
 };
 
 const formats = {
 	audio: ["aac","flac","mp3","m4a","opus","vorbis","wav","alac"],
 	video: ["mkv","mp4","ogg","webm","flv"]
-}
+};
+
+//Stops browsers like chrome from sending 2 requests (breaking shit)
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 app.get("/download/:format?", async (req, res) => {
 	const ytURL = req.query.link;
-	const nolimit = req.query.nolimit=="true";
+	const nolimit = req.query.nolimit == "true";
 	let format = req.params.format ? req.params.format.toLowerCase() : "mp3";
 
 	res.header("Content-Type",'application/json');
 
-	if(!ytURL) return res.status(400).send({
-		message: "Not A Valid Youtube Video URL Or Video ID"
-	});
-
 	const ytID = youtube_parser(ytURL);
 
-	if(!ytID) return res.status(400).send({
-		message: "Not A Valid Youtube Video URL Or Video ID"
-	});
+	if (!ytURL) {
+		return sendError(res, 400, "Not A Valid Youtube Video URL Or Video ID");
+	}
+
+	if (!ytID) {
+		return sendError(res, 400, "Not A Valid Youtube Video URL Or Video ID");
+	}
+
+	if (downloadingCurrentList.includes(ytID)) {
+		return sendError(res, 429, "This video is already being processed. Please try again shortly.");
+	}
 
 	const count = await videosDB.count({ where: { pk: `${format}-${ytID}` } });
 
-	if(count > 0) {
+	if (count > 0) {
 		videosDB.findByPk(`${format}-${ytID}`).then(async video => {
 			console.log(`(${ytID}) cached ${format} sent!`);
 
@@ -162,8 +185,8 @@ app.get("/download/:format?", async (req, res) => {
 			delete out.pk;
 			delete out.createdAt;
 			delete out.lastUsed;
-			if(!out.discord) delete out.discord;
-			if(!out.imgur) delete out.imgur;
+			if (!out.discord) delete out.discord;
+			if (!out.imgur) delete out.imgur;
 
 			res.status(200).json(out);
 		});
@@ -171,41 +194,59 @@ app.get("/download/:format?", async (req, res) => {
 	}
 
 	let filter = "mergevideo";
-	if (formats.audio.includes(format)) filter = "audioonly"
-	else if(!formats.video.includes(format)) return res.status(400).send({
-		message: "Format Not Supported"
-	});
+	if (formats.audio.includes(format)) {
+		filter = "audioonly";
+	} else if (!formats.video.includes(format)) {
+		return sendError(res, 400, "Format Not Supported");
+	}
+
+	downloadingCurrentList.push(ytID);
 
 	let video;
 	try {
-    	const info = await youtube.getVideo(ytURL);
+		const info = await youtube.getVideo(ytURL);
 
 		const dur = info.duration;
-		const duration = dur.seconds + (dur.minutes*60) + (dur.hours*60*60) + (dur.days*24*60*60);
+		const duration =
+			dur.seconds +
+			(dur.minutes * 60) +
+			(dur.hours * 60 * 60) +
+			(dur.days * 24 * 60 * 60);
 
 		video = {
 			title: info.title,
 			channel: info.channel.title,
 			youtubeurl: `https://www.youtube.com/watch?v=${info.id}`,
 			duration: duration
-		}
+		};
 	} catch (err) {
 		console.log(err.message);
-		return res.status(500).send({
-			message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
-		});
+		return sendError(
+			res,
+			500,
+			"Unable To Fetch Video, Likely Copyright Or Region Locked",
+			ytID
+		);
 	}
 
-	if(!video) return; //video failed to fetch
+	if (!video) {
+		downloadingCurrentList = downloadingCurrentList.filter(id => id !== ytID);
+		return;
+	}
 
-	if(video.duration>1200 & !nolimit) return res.status(413).send({
-		message: "Video Duration Exceeds Set Max Amount: 20 Minutes"
-	});
+	if (video.duration > 1200 & !nolimit) {
+		return sendError(
+			res,
+			413,
+			"Video Duration Exceeds Set Max Amount: 20 Minutes",
+			ytID
+		);
+	}
 
 	console.log(`downloading ${ytID} ${format}...`);
 
-	try{
-		await ytdlp.downloadAsync(ytURL,{
+	try {
+		await ytdlp.downloadAsync(ytURL, {
 			format: {
 				filter: filter,
 				type: format,
@@ -214,17 +255,20 @@ app.get("/download/:format?", async (req, res) => {
 			output: `${downloadsPath}/${ytID}.${format}`
 		});
 
-		sendData(res,video,ytID,format)
-	} catch(err) {
-		unlink(`${downloadsPath}/${ytID}.${format}`, err => {
-			if(err) console.error(err);
+		sendData(res, video, ytID, format);
+	} catch (err) {
+		unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
+			if (err2) console.error(err2);
 		});
 
 		console.error(err);
 
-		return res.status(500).send({
-			message: "Error while trying to get video"
-		});
+		return sendError(
+			res,
+			500,
+			"Error while trying to get video",
+			ytID
+		);
 	}
 });
 
