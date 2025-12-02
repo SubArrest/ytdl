@@ -2,34 +2,61 @@
 <html>
 <head>
     <title>YTDL UI</title>
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
 </head>
 <body>
-<form action="/api/ytdlui/process" method="POST">
+<div class="container">
+  <img src="images/ytdlicon.png" width="300" height="300">
+  <form action="/ytdl/process" method="POST" class="content">
 
-    <label>
-        Video:
-        <input type="text" name="textField" required>
-    </label>
-    <br><br>
+      <label>
+          Video:
+          <input type="text" name="textField" required>
+      </label>
+      <br><br>
 
-    <label>
-        Format:
-        <select name="dropdown" id="dropdown"></select>
-    </label>
-    <br><br>
+      <label>
+          Format:
+          <select name="dropdown" id="dropdown"></select>
+      </label>
+      <br><br>
 
-    <label>
-        <input type="checkbox" name="checkbox">
-        No Limit?
-    </label>
-    <br><br>
+      <label>
+          <input type="checkbox" name="checkbox">
+          No Limit?
+      </label>
+      <br><br>
 
-    <button type="submit">Go</button>
+      <button type="submit">Go</button>
+  </form>
+</div>
 
-</form>
+<style>
+  body {
+    margin:0;
+    display:flex;
+    height:100vh;
+    align-items:center;
+  }
+  .container {
+    width: 85vw;
+    margin: 0 auto;
+    overflow: auto;
+  }
+  .content {
+    text-align: center;
+  }
+  img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    height: auto;
+    width: 10%;
+  }
+</style>
 
 <script>
-fetch('/api/ytdlui/formats')
+fetch('/ytdl/formats')
   .then(res => res.json())
   .then(formats => {
     const dropdown = document.getElementById('dropdown');
@@ -64,9 +91,9 @@ window.addEventListener('DOMContentLoaded', () => {
     // Option 2: support /ENCODED_URL as path (e.g. /https%3A%2F%2F...)
     if (!linkFromUrl) {
       const path = url.pathname;
-      if (path && path !== '/api/ytdlui/') {
+      if (path && path !== '/ytdl/') {
         // Remove leading slash and decode
-        const encoded = path.slice(12);
+        const encoded = path.slice(6);
         try {
           linkFromUrl = decodeURIComponent(encoded);
         } catch (e) {
