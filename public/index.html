@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YTDL UI</title>
+</head>
+<body>
+<form action="/api/ytdlui/process" method="POST">
+
+    <label>
+        Video:
+        <input type="text" name="textField" required>
+    </label>
+    <br><br>
+
+    <label>
+        Format:
+        <select name="dropdown" id="dropdown"></select>
+    </label>
+    <br><br>
+
+    <label>
+        <input type="checkbox" name="checkbox">
+        No Limit?
+    </label>
+    <br><br>
+
+    <button type="submit">Go</button>
+
+</form>
+
+<script>
+fetch('/api/ytdlui/formats')
+  .then(res => res.json())
+  .then(formats => {
+    const dropdown = document.getElementById('dropdown');
+
+    Object.entries(formats).forEach(([category, types]) => {
+      const group = document.createElement('optgroup');
+      group.label = category.toUpperCase();
+
+      types.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+
+        if (type === "mp3") option.selected = true;
+
+        group.appendChild(option);
+      });
+
+      dropdown.appendChild(group);
+    });
+  });
+window.addEventListener('DOMContentLoaded', () => {
+    const url = new URL(window.location.href);
+    const linkInput = document.querySelector('input[name="textField"]');
+    if (!linkInput) return;
+
+    let linkFromUrl = null;
+
+    // Option 1: support ?link=URL
+    linkFromUrl = url.searchParams.get('link');
+
+    // Option 2: support /ENCODED_URL as path (e.g. /https%3A%2F%2F...)
+    if (!linkFromUrl) {
+      const path = url.pathname;
+      if (path && path !== '/api/ytdlui/') {
+        // Remove leading slash and decode
+        const encoded = path.slice(12);
+        try {
+          linkFromUrl = decodeURIComponent(encoded);
+        } catch (e) {
+          console.warn('Failed to decode path as URL:', e);
+        }
+      }
+    }
+
+    if (linkFromUrl) {
+      linkInput.value = linkFromUrl;
+    }
+});
+</script>
+
+</body>
+</html>

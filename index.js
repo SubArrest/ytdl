@@ -76,7 +76,14 @@ const idRegex = /^[a-zA-Z0-9-_]{11}$/;
 const validateID = id => idRegex.test(id.trim());
 
 function youtube_parser(link) {
-	const parsed = new URL(link.trim());
+	let parsed 
+
+	try {
+        parsed = new URL(link.trim());
+    } catch (err) {
+        return false; // Invalid URL format
+    }
+
 	let id = parsed.searchParams.get("v");
 
 	if (validPathDomains.test(link.trim()) && !id) {
