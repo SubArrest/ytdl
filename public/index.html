@@ -3,110 +3,87 @@
 <head>
     <title>YTDL UI</title>
     <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Global styles -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- JSON viewer logic (defines renderJsonInto + lastJsonData) -->
+    <script src="json-viewer.js" defer></script>
+
+    <!-- App logic (form handling, fetch, etc.) -->
+    <script src="app.js" defer></script>
 </head>
 <body>
-<div class="container">
-  <img src="images/ytdlicon.png" width="300" height="300">
-  <form action="/ytdl/process" method="POST" class="content">
 
-      <label>
-          Video:
-          <input type="text" name="textField" required>
-      </label>
-      <br><br>
+<!--
+  MAIN LAYOUT
+  ------------------------------------------------------------------
+  Left:  request form
+  Right: JSON result viewer (appears after first request)
+-->
+<div class="page">
 
-      <label>
-          Format:
-          <select name="dropdown" id="dropdown"></select>
-      </label>
-      <br><br>
+  <!-- LEFT COLUMN: form + processing indicator -->
+  <div class="container">
+    <div class="box box--main">
+      <div class="box-inner">
+        <!-- App logo -->
+        <img src="images/ytdlicon.png" class="box-image">
 
-      <label>
-          <input type="checkbox" name="checkbox">
-          No Limit?
-      </label>
-      <br><br>
+        <!-- YTDL request form -->
+        <form action="/ytdl/process" method="POST" class="content" id="ytdl-form">
 
-      <button type="submit">Go</button>
-  </form>
+          <label>
+            Video:
+            <input type="text" name="textField" required>
+          </label>
+          <br><br>
+
+          <label>
+            Format:
+            <select name="dropdown" id="dropdown"></select>
+          </label>
+          <br><br>
+
+          <label>
+            <input type="checkbox" name="checkbox">
+            No Limit?
+          </label>
+          <br><br>
+
+          <button type="submit">Go</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Processing indicator (shown while request is running) -->
+    <div id="processing-indicator" class="processing-indicator hidden" aria-live="polite">
+      <span class="processing-spinner"></span>
+      <span>Processing…</span>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: JSON result viewer -->
+  <div class="container result-container">
+    <div class="box box--result">
+      <div class="box-inner">
+        <h2 id="result-heading" class="result-heading">Result</h2>
+
+        <div id="error-banner" class="error-banner hidden"></div>
+
+        <!-- Copy raw JSON to clipboard -->
+        <button type="button" id="copy-json-btn" class="copy-btn">Copy JSON</button>
+
+        <!-- Pretty JSON output area -->
+        <div id="json-output" class="json-output">
+          <em>Fill in the form and press "Go" to see the API response here.</em>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
-
-<style>
-  body {
-    margin:0;
-    display:flex;
-    height:100vh;
-    align-items:center;
-  }
-  .container {
-    width: 85vw;
-    margin: 0 auto;
-    overflow: auto;
-  }
-  .content {
-    text-align: center;
-  }
-  img {
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-    height: auto;
-    width: 10%;
-  }
-</style>
-
-<script>
-fetch('/ytdl/formats')
-  .then(res => res.json())
-  .then(formats => {
-    const dropdown = document.getElementById('dropdown');
-
-    Object.entries(formats).forEach(([category, types]) => {
-      const group = document.createElement('optgroup');
-      group.label = category.toUpperCase();
-
-      types.forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-
-        if (type === "mp3") option.selected = true;
-
-        group.appendChild(option);
-      });
-
-      dropdown.appendChild(group);
-    });
-  });
-window.addEventListener('DOMContentLoaded', () => {
-    const url = new URL(window.location.href);
-    const linkInput = document.querySelector('input[name="textField"]');
-    if (!linkInput) return;
-
-    let linkFromUrl = null;
-
-    // Option 1: support ?link=URL
-    linkFromUrl = url.searchParams.get('link');
-
-    // Option 2: support /ENCODED_URL as path (e.g. /https%3A%2F%2F...)
-    if (!linkFromUrl) {
-      const path = url.pathname;
-      if (path && path !== '/ytdl/') {
-        // Remove leading slash and decode
-        const encoded = path.slice(6);
-        try {
-          linkFromUrl = decodeURIComponent(encoded);
-        } catch (e) {
-          console.warn('Failed to decode path as URL:', e);
-        }
-      }
-    }
-
-    if (linkFromUrl) {
-      linkInput.value = linkFromUrl;
-    }
-});
-</script>
 
 </body>
 </html>

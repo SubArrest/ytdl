@@ -1,0 +1,369 @@
+/* ==============================
+   BASE LAYOUT
+   ============================== */
+body {
+  margin: 0;
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+  font-family: sans-serif;
+}
+
+.page {
+  /* Start as a simple block so the single container can center nicely */
+  display: block;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* Base container size on normal desktop */
+.container {
+  width: min(70vmin, 480px);
+  position: relative;          /* for the processing indicator */
+  margin: 0 auto;              /* center horizontally when single */
+}
+
+/* Hidden completely until results exist */
+.result-container {
+  display: none;
+}
+
+/* When results are ready, switch to a two-column flex layout */
+.page.show-results {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+/* Show the result container once we’re in "results" mode */
+.page.show-results .result-container {
+  display: block;
+  margin: 0;       /* flex+gap handles spacing now */
+}
+
+
+/* ==============================
+   GENERIC BOX STYLING
+   ============================== */
+.box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;          /* keep a perfect square */
+  background: #e3f0ff;
+  border: 2px solid #7ab3f8;
+  border-radius: 12px;
+  box-shadow: 0 0 10px #0003;
+  transition: transform 0.9s ease;
+}
+
+.box-inner {
+  position: absolute;
+  inset: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+/* Result box: top-aligned content with a bit more padding */
+.box--result .box-inner {
+  justify-content: flex-start;
+  padding: 12px 16px;
+}
+
+/* Result heading styling */
+.result-heading {
+  position: relative;
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  text-align: center;
+  color: #2a4d7a;
+  width: 100%;
+}
+
+/* Underline pseudo-element (full width, starts collapsed) */
+.result-heading::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;               /* full width underline */
+  height: 2px;
+  background: #7ab3f8;
+  transform: scaleX(0);       /* collapsed */
+  transform-origin: center;   /* grows from the center */
+  transition: transform 0.5s ease;
+}
+
+/* When animation class is added, expand underline fully */
+.result-heading.underline-animate::after {
+  transform: scaleX(1);
+}
+
+.box-image {
+  width: 35%;
+  height: auto;
+  margin-bottom: 20px;
+}
+
+.content {
+  text-align: center;
+  width: 100%;
+}
+
+/* ==============================
+   COPY BUTTON (JSON VIEWER)
+   ============================== */
+.copy-btn {
+  align-self: flex-end;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #7ab3f8;
+  background: #ffffff;
+  cursor: pointer;
+}
+.copy-btn:hover {
+  background: #e3f0ff;
+}
+
+/* ==============================
+   ERROR BANNER ABOVE JSON OUTPUT
+   ============================== */
+.error-banner {
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 2px solid #d9534f;      /* red border */
+  background: #f8d7da;            /* pale red background */
+  color: #842029;                 /* darker red text */
+  font-weight: bold;
+  border-radius: 6px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.error-banner.hidden {
+  display: none;
+}
+
+/* ==============================
+   JSON VIEWER STYLES
+   - line numbers
+   - syntax colours
+   - collapsible blocks
+   ============================== */
+.json-output {
+  background: #f5f5f5;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px 0;          /* extra left “padding” comes from line number column */
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  counter-reset: line;
+}
+
+/* Each logical line: [line-number] [JSON content] */
+.json-line {
+  counter-increment: line;
+  display: grid;
+  grid-template-columns: 3em auto;   /* line number + content */
+  column-gap: 8px;
+  padding: 0 12px;
+}
+
+.json-line::before {
+  content: counter(line);
+  text-align: right;
+  color: #999;
+  user-select: none;
+}
+
+/* indentation for nesting level */
+.json-indent {
+  display: inline-block;
+  width: calc(var(--level, 0) * 1.25rem);
+}
+
+/* syntax colours */
+.json-key     { color: #0033cc; }
+.json-string  { color: #008000; }
+.json-number  { color: #aa00aa; }
+.json-boolean { color: #aa0000; }
+.json-null    { color: #777; }
+.json-brace   { color: #000; }
+
+/* clickable URL strings */
+.json-link {
+  color: #0066cc;
+  text-decoration: underline;
+}
+
+/* collapsible object/array block container */
+.json-block {
+  position: relative;
+}
+
+.json-line-open {
+  cursor: default;
+}
+
+/* small toggle triangle before each collapsible block */
+.json-toggle {
+  display: inline-block;
+  width: 1rem;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  margin-right: 2px;
+  color: #555;
+}
+
+/* collapsed state hides children and rotates toggle */
+.json-block.collapsed > .json-children {
+  display: none;
+}
+
+.json-block.collapsed .json-toggle {
+  transform: rotate(-90deg);
+}
+
+/* ==============================
+   ANIMATION STATES (SHOW RESULT BOX)
+   ============================== */
+
+/* Form box: no transform needed; layout will move it smoothly as width grows */
+/* (so you can delete any .page.show-results .box--main transform rule) */
+
+/* Result box starts slightly left inside its (zero-width) container */
+.box--result {
+  transform: translateX(-20px);
+  pointer-events: none;
+}
+
+/* When results appear, run a slide-in animation on the result box only */
+.page.show-results .box--result {
+  pointer-events: auto;
+  animation: result-slide-in 0.9s ease forwards;
+}
+
+/* Slide result box from slightly left to its natural position */
+@keyframes result-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ==============================
+   PROCESSING INDICATOR
+   ============================== */
+.processing-indicator {
+  position: absolute;
+  top: 100%;                 /* directly below the main box */
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 10px;          /* gap under the box */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #444;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  pointer-events: auto;
+}
+
+.processing-indicator.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.processing-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #7ab3f8;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==============================
+   RESPONSIVE BEHAVIOUR
+   - boxes stack vertically on mobile
+   ============================== */
+@media (max-width: 768px) {
+  .container {
+    width: 85vmin;
+  }
+
+  .box-inner {
+    inset: 20px;
+  }
+
+  .box-image {
+    width: 40%;
+  }
+
+  /* When results are shown on mobile, the flex layout from .page.show-results
+     will stack the two .container blocks; gap: 2rem gives vertical spacing. */
+}
+
+/* Large desktop screens — bigger boxes and moderate internal scaling */
+@media (min-width: 1400px) {
+
+  .container {
+    width: min(55vmin, 520px);
+  }
+
+  .page.show-results .result-container {
+    /* result box uses same width as main box when visible */
+    width: min(55vmin, 520px);
+  }
+
+  .box-inner {
+    transform: scale(1.10);
+    transform-origin: center;
+  }
+
+  .box-image {
+    width: 45%;
+  }
+
+  .content label,
+  .content button {
+    font-size: 1.05rem;
+  }
+
+  .content input,
+  .content select {
+    font-size: 0.95rem;
+    padding: 3px 6px;
+  }
+}
+
+
