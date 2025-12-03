@@ -39,7 +39,7 @@ function createValueSpan(key, value) {
   const span = document.createElement('span');
 
   if (typeof value === 'string') {
-    const linkKeys = ['qr', 'videourl', 'youtubeurl', 'image'];
+    const linkKeys = ['qr', 'videourl', 'youtubeurl', 'image', 'discord'];
 
     // Turn known URL fields into clickable links
     if (linkKeys.includes(key) && /^https?:\/\//.test(value)) {

@@ -1,3 +1,101 @@
+:root {
+  /* Light theme (default) */
+  --bg-color: #f0f2f5;
+  --text-color: #111827;
+
+  --box-bg: #e3f0ff;
+  --box-border: #7ab3f8;
+  --heading-color: #2a4d7a;
+  --accent-color: #7ab3f8;
+  --accent-glow: rgba(122, 179, 248, 0);
+
+  --json-bg: #f5f5f5;
+  --json-border: #d1d5db;
+
+  --error-bg: #f8d7da;
+  --error-border: #d9534f;
+  --error-text: #842029;
+
+  --processing-text: #444;
+
+  /* JSON syntax colours */
+  --json-key-color: #0033cc;
+  --json-string-color: #008000;
+  --json-number-color: #aa00aa;
+  --json-boolean-color: #aa0000;
+  --json-null-color: #777;
+
+  --toggle-icon-color: #f59e0b;    /* warm sun / moon color in light mode */
+}
+
+/* Dark theme overrides */
+body.dark-theme {
+  --bg-color: #05070a;
+  --text-color: #e5e7eb;
+
+  --box-bg: #111827;
+  --box-border: #3b82f6;
+  --heading-color: #dbeafe;
+  --accent-color: #3b82f6;
+  --accent-glow: rgba(122, 179, 248, 0.35);
+
+  --json-bg: #020617;
+  --json-border: #1f2937;
+
+  --error-bg: #3b0d0f;
+  --error-border: #f87171;
+  --error-text: #fecaca;
+
+  --processing-text: #e5e7eb;
+
+  --json-key-color: #93c5fd;
+  --json-string-color: #6ee7b7;
+  --json-number-color: #c4b5fd;
+  --json-boolean-color: #fca5a5;
+  --json-null-color: #9ca3af;
+
+  --toggle-icon-color: #fde68a;    /* softer pale yellow in dark mode */
+}
+
+/* Base thumb translate offset for squish calc */
+.toggle-thumb {
+  --tx: 0;
+}
+
+body.dark-theme .toggle-thumb {
+  --tx: 48px; /* same as translateX distance */
+}
+
+/* Smooth theme transition */
+body, 
+.box, 
+.json-output,
+.error-banner,
+.theme-toggle,
+.box-inner,
+.result-heading,
+.result-heading::after {
+  transition: 
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    color 0.35s ease,
+    fill 0.35s ease,
+    stroke 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+body.dark-theme .box {
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+body.dark-theme .result-heading::after {
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+body.dark-theme .toggle-track {
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
 /* ==============================
    BASE LAYOUT
    ============================== */
@@ -8,6 +106,8 @@ body {
   align-items: center;
   justify-content: center;
   font-family: sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
 }
 
 .page {
@@ -52,12 +152,12 @@ body {
 .box {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;          /* keep a perfect square */
-  background: #e3f0ff;
-  border: 2px solid #7ab3f8;
+  aspect-ratio: 1 / 1;
+  background: var(--box-bg);
+  border: 2px solid var(--box-border);
   border-radius: 12px;
   box-shadow: 0 0 10px #0003;
-  transition: transform 0.9s ease;
+  transition: transform 0.9s ease, background 0.3s ease, border-color 0.3s ease;
 }
 
 .box-inner {
@@ -87,27 +187,27 @@ body {
   margin: 0 0 12px 0;
   padding-bottom: 8px;
   text-align: center;
-  color: #2a4d7a;
+  color: var(--heading-color);
   width: 100%;
 }
 
-/* Underline pseudo-element (full width, starts collapsed) */
 .result-heading::after {
   content: "";
   position: absolute;
   left: 0;
   bottom: 0;
-  width: 100%;               /* full width underline */
+  width: 100%;
   height: 2px;
-  background: #7ab3f8;
-  transform: scaleX(0);       /* collapsed */
-  transform-origin: center;   /* grows from the center */
+  background: var(--accent-color);
+  transform: scaleX(0);
+  transform-origin: center;
   transition: transform 0.5s ease;
 }
 
 /* When animation class is added, expand underline fully */
 .result-heading.underline-animate::after {
   transform: scaleX(1);
+  transition-delay: 0.1s;
 }
 
 .box-image {
@@ -119,6 +219,134 @@ body {
 .content {
   text-align: center;
   width: 100%;
+}
+
+/* ==============================
+   THEME TOGGLE BUTTON
+   ============================== */
+
+/* Container button */
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Toggle track (larger pill) */
+.toggle-track {
+  width: 78px;
+  height: 40px;
+  background: var(--json-border);
+  border-radius: 999px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  transition: background 0.3s ease;
+  box-shadow: 0 2px 8px #0005;
+}
+
+/* Thumb (circle that slides) */
+.toggle-thumb {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  background: var(--box-bg);
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.3s ease, background 0.3s ease;
+  box-shadow: 0 2px 6px #0006;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--toggle-icon-color);
+}
+
+/* SVG inside thumb */
+.icon-sun,
+.icon-moon {
+  position: absolute;
+  transition: opacity 0.25s ease;
+  transform: translateY(2px);
+}
+
+/* Shared SVG styling – Heroicon-style outline */
+.icon-svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Sun spin animation and Moon wobble */
+
+/* Sun: quick spin when light mode becomes active */
+.icon-sun.spin .icon-svg {
+  animation: sun-spin 0.4s ease-out;
+}
+
+@keyframes sun-spin {
+  0%   { transform: rotate(0deg); }
+  60%  { transform: rotate(260deg) scale(1.1); }
+  100% { transform: rotate(220deg) scale(1); }
+}
+
+/* Moon: subtle wobble when dark mode becomes active */
+.icon-moon.wobble .icon-svg {
+  animation: moon-wobble 0.45s ease-out;
+}
+
+@keyframes moon-wobble {
+  0%   { transform: rotate(0deg); }
+  30%  { transform: rotate(-12deg) translateX(-1px); }
+  60%  { transform: rotate(8deg) translateX(1px); }
+  100% { transform: rotate(0deg) translateX(0); }
+}
+
+.icon-sun {
+  opacity: 1;
+}
+.icon-moon {
+  opacity: 0;
+}
+
+/* DARK MODE ON — track, thumb position, icon swap */
+body.dark-theme .toggle-track {
+  background: var(--accent-color);
+}
+
+body.dark-theme .toggle-thumb {
+  transform: translateX(49px);
+}
+
+body.dark-theme .icon-sun {
+  opacity: 0;
+}
+body.dark-theme .icon-moon {
+  opacity: 1;
+}
+
+/* Squish animation on toggle */
+@keyframes toggle-squish {
+  0%   { transform: scale(1) translateX(var(--tx, 0)); }
+  40%  { transform: scale(1.2, 0.8) translateX(var(--tx, 0)); }
+  100% { transform: scale(1) translateX(var(--tx, 0)); }
+}
+
+/* When this class is added, play squish */
+.toggle-thumb.squish {
+  animation: toggle-squish 0.22s ease;
 }
 
 /* ==============================
@@ -145,9 +373,9 @@ body {
   width: 100%;
   padding: 10px 14px;
   margin-bottom: 12px;
-  border: 2px solid #d9534f;      /* red border */
-  background: #f8d7da;            /* pale red background */
-  color: #842029;                 /* darker red text */
+  border: 2px solid var(--error-border);
+  background: var(--error-bg);
+  color: var(--error-text);
   font-weight: bold;
   border-radius: 6px;
   text-align: center;
@@ -165,10 +393,10 @@ body {
    - collapsible blocks
    ============================== */
 .json-output {
-  background: #f5f5f5;
-  border: 1px solid #ccc;
+  background: var(--json-bg);
+  border: 1px solid var(--json-border);
   border-radius: 8px;
-  padding: 8px 0;          /* extra left “padding” comes from line number column */
+  padding: 8px 0;
   width: 100%;
   height: 100%;
   overflow: auto;
@@ -176,6 +404,7 @@ body {
   font-size: 0.85rem;
   line-height: 1.35;
   counter-reset: line;
+  margin-top: 8px;
 }
 
 /* Each logical line: [line-number] [JSON content] */
@@ -201,12 +430,12 @@ body {
 }
 
 /* syntax colours */
-.json-key     { color: #0033cc; }
-.json-string  { color: #008000; }
-.json-number  { color: #aa00aa; }
-.json-boolean { color: #aa0000; }
-.json-null    { color: #777; }
-.json-brace   { color: #000; }
+.json-key     { color: var(--json-key-color); }
+.json-string  { color: var(--json-string-color); }
+.json-number  { color: var(--json-number-color); }
+.json-boolean { color: var(--json-boolean-color); }
+.json-null    { color: var(--json-null-color); }
+.json-brace   { color: inherit; }
 
 /* clickable URL strings */
 .json-link {
@@ -288,7 +517,7 @@ body {
   justify-content: center;
   gap: 0.5rem;
   font-size: 0.9rem;
-  color: #444;
+  color: var(--processing-text);
   opacity: 1;
   transition: opacity 0.3s ease;
   pointer-events: auto;
@@ -321,6 +550,11 @@ body {
     width: 85vmin;
   }
 
+  .result-wrapper {
+    flex-direction: column;
+    align-items: center;
+  }
+
   .box-inner {
     inset: 20px;
   }
@@ -328,9 +562,6 @@ body {
   .box-image {
     width: 40%;
   }
-
-  /* When results are shown on mobile, the flex layout from .page.show-results
-     will stack the two .container blocks; gap: 2rem gives vertical spacing. */
 }
 
 /* Large desktop screens — bigger boxes and moderate internal scaling */

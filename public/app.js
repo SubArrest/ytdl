@@ -6,6 +6,19 @@ const processingIndicator = document.getElementById('processing-indicator');
 const copyBtn = document.getElementById('copy-json-btn');
 const errorBanner = document.getElementById('error-banner');
 const resultHeading = document.getElementById('result-heading');
+const themeToggle = document.getElementById('theme-toggle');
+const toggleThumb = document.querySelector('.toggle-thumb');
+const iconSun = document.querySelector('.icon-sun');
+const iconMoon = document.querySelector('.icon-moon');
+
+const THEME_KEY = 'ytdl-ui-theme';
+
+function applyTheme(theme) {
+  const body = document.body;
+  const isDark = theme === 'dark';
+
+  body.classList.toggle('dark-theme', isDark);
+}
 
 /* -----------------------------
    POPULATE FORMAT DROPDOWN
@@ -38,6 +51,14 @@ fetch('/ytdl/formats')
    - supports ?link=... and /ytdl/<encoded-url>
    ----------------------------- */
 window.addEventListener('DOMContentLoaded', () => {
+  // --- THEME INIT ---
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  if (savedTheme === 'dark' || savedTheme === 'light') {
+    applyTheme(savedTheme);
+  } else {
+    applyTheme('light');
+  }
+
   const url = new URL(window.location.href);
   const linkInput = document.querySelector('input[name="textField"]');
   if (!linkInput) return;
@@ -162,4 +183,37 @@ form.addEventListener('submit', async (e) => {
     }
   }
 });
+
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    const isDark = document.body.classList.contains('dark-theme');
+    const newTheme = isDark ? 'light' : 'dark';
+    applyTheme(newTheme);
+    localStorage.setItem(THEME_KEY, newTheme);
+
+    // Squish animation on the thumb
+    if (toggleThumb) {
+      toggleThumb.classList.remove('squish');
+      void toggleThumb.offsetWidth;
+      toggleThumb.classList.add('squish');
+    }
+
+    // Icon animations: spin sun when going to light mode, wobble moon when going to dark mode
+    if (iconSun && iconMoon) {
+      // clear previous animations so they can restart
+      iconSun.classList.remove('spin');
+      iconMoon.classList.remove('wobble');
+      void iconSun.offsetWidth;
+      void iconMoon.offsetWidth;
+
+      if (newTheme === 'dark') {
+        // Dark mode just activated → moon wobble
+        iconMoon.classList.add('wobble');
+      } else {
+        // Light mode just activated → sun spin
+        iconSun.classList.add('spin');
+      }
+    }
+  });
+}
 

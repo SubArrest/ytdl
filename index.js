@@ -458,6 +458,7 @@ app.get("/playlist", (req, res) => {
 	});
 })
 
+/* need to replace with gdrive or smth cus imgur not available in uk :(
 app.get("/imgur", async (req, res) => {
     const img = req.query.img;
     const id = req.query.id;
@@ -511,6 +512,7 @@ app.get("/imgur", async (req, res) => {
         });
     }
 });
+*/
 
 app.get("/qr/:file?", async (req, res) => {
 	let file = req.params.file;
