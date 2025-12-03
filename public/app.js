@@ -20,6 +20,57 @@ function applyTheme(theme) {
   body.classList.toggle('dark-theme', isDark);
 }
 
+function initParticles() {
+  const count = 30; // how many particles you want
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+
+    // random horizontal position
+    p.style.left = Math.random() * 100 + 'vw';
+
+    // random size between 3px and 6px
+    const size = 3 + Math.random() * 3;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+
+    // random animation duration between 18s and 30s
+    const duration = 18 + Math.random() * 12;
+    p.style.animationDuration = duration + 's';
+
+    // random negative delay so they start at different heights
+    const delay = -Math.random() * duration;
+    p.style.animationDelay = delay + 's';
+
+    // slight opacity variation
+    const opacity = 0.25 + Math.random() * 0.25;
+    p.style.opacity = opacity.toString();
+
+    document.body.appendChild(p);
+  }
+}
+
+function initParallax() {
+  // Only do parallax on devices with a mouse / fine pointer
+  const media = window.matchMedia('(pointer: fine)');
+  if (!media.matches) return;
+
+  document.addEventListener('mousemove', (e) => {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    const dx = (e.clientX - cx) / cx; // -1 to 1
+    const dy = (e.clientY - cy) / cy; // -1 to 1
+
+    // Scale down so it's subtle
+    const offsetX = dx * 20; // px
+    const offsetY = dy * 20; // px
+
+    document.documentElement.style.setProperty('--parallax-x', `${offsetX}px`);
+    document.documentElement.style.setProperty('--parallax-y', `${offsetY}px`);
+  });
+}
+
 /* -----------------------------
    POPULATE FORMAT DROPDOWN
    ----------------------------- */
@@ -56,7 +107,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (savedTheme === 'dark' || savedTheme === 'light') {
     applyTheme(savedTheme);
   } else {
-    applyTheme('light');
+    applyTheme('dark');
   }
 
   const url = new URL(window.location.href);
@@ -79,9 +130,10 @@ window.addEventListener('DOMContentLoaded', () => {
 	}
   }
 
-  if (linkFromUrl) {
-	linkInput.value = linkFromUrl;
-  }
+  if (linkFromUrl) linkInput.value = linkFromUrl;
+
+  initParticles();
+  initParallax();
 });
 
 /* -----------------------------
