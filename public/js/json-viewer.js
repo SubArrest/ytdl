@@ -1,9 +1,7 @@
-// Holds the most recent JSON response (used by copy-to-clipboard)
+// Last JSON response (used by copy button)
 let lastJsonData = null;
 
-/**
- * Create a new "line" element with line-number support and indentation.
- */
+// Create a new line with indent
 function createLine(level) {
   const line = document.createElement('div');
   line.className = 'json-line';
@@ -20,9 +18,7 @@ function createLine(level) {
   return { line, content, indent };
 }
 
-/**
- * Render a JSON object key (e.g. "id": ).
- */
+// Render a JSON key (e.g. "id": )
 function appendKeySpan(content, key) {
   if (key === null) return;
   const keySpan = document.createElement('span');
@@ -31,17 +27,14 @@ function appendKeySpan(content, key) {
   content.appendChild(keySpan);
 }
 
-/**
- * Render a primitive JSON value as a span, with optional hyperlink.
- * Keys 'qr', 'videourl', 'youtubeurl', 'image' are rendered as <a> links.
- */
+// Render a primitive value (strings, numbers, booleans, null)
 function createValueSpan(key, value) {
   const span = document.createElement('span');
 
   if (typeof value === 'string') {
     const linkKeys = ['qr', 'videourl', 'youtubeurl', 'image', 'discord'];
 
-    // Turn known URL fields into clickable links
+    // URL-like fields as clickable links
     if (linkKeys.includes(key) && /^https?:\/\//.test(value)) {
       span.className = 'json-string';
       const a = document.createElement('a');
@@ -72,14 +65,11 @@ function createValueSpan(key, value) {
   return span;
 }
 
-/**
- * Recursively render a JSON value (primitive, object, or array)
- * into nested line/block elements.
- */
+// Recursively render any JSON value
 function renderValue(value, level, key, isLast) {
   const type = Object.prototype.toString.call(value);
 
-  // ----- Primitive types: string, number, boolean, null -----
+  // Primitive types
   if (
     type === '[object String]' ||
     type === '[object Number]' ||
@@ -97,12 +87,12 @@ function renderValue(value, level, key, isLast) {
     return line;
   }
 
-  // ----- Objects / Arrays (collapsible blocks) -----
+  // Objects / arrays (collapsible blocks)
   const isArray = type === '[object Array]';
   const block = document.createElement('div');
   block.className = 'json-block';
 
-  // Opening line with toggle and opening brace
+  // Opening line
   const { line: openLine, content: openContent } = createLine(level);
   openLine.classList.add('json-line-open');
 
@@ -120,7 +110,7 @@ function renderValue(value, level, key, isLast) {
 
   block.appendChild(openLine);
 
-  // Children: each property/element rendered one level deeper
+  // Children
   const children = document.createElement('div');
   children.className = 'json-children';
 
@@ -140,7 +130,7 @@ function renderValue(value, level, key, isLast) {
 
   block.appendChild(children);
 
-  // Closing line with closing brace
+  // Closing line
   const { line: closeLine, content: closeContent } = createLine(level);
   const braceClose = document.createElement('span');
   braceClose.className = 'json-brace';
@@ -154,19 +144,14 @@ function renderValue(value, level, key, isLast) {
   return block;
 }
 
-/**
- * Clear and re-render JSON data into the given container.
- */
+// Render JSON into a container
 function renderJsonInto(container, data) {
   container.innerHTML = '';
   const root = renderValue(data, 0, null, true);
   container.appendChild(root);
 }
 
-/**
- * Global click handler:
- * toggles collapsed state when clicking on a .json-toggle element.
- */
+// Toggle collapse/expand on click
 document.addEventListener('click', (e) => {
   if (e.target.classList.contains('json-toggle')) {
     const block = e.target.closest('.json-block');

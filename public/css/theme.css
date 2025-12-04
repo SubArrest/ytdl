@@ -1,0 +1,113 @@
+/* Theme variables */
+:root {
+  --bg-color: #f0f2f5;
+  --text-color: #111827;
+
+  --box-bg: #e3f0ff;
+  --box-border: #7ab3f8;
+  --heading-color: #2a4d7a;
+  --accent-color: #7ab3f8;
+  --accent-glow: rgba(122, 179, 248, 0);
+
+  --json-bg: #f5f5f5;
+  --json-border: #d1d5db;
+
+  --error-bg: #f8d7da;
+  --error-border: #d9534f;
+  --error-text: #842029;
+
+  --processing-text: #444;
+
+  --json-key-color: #0033cc;
+  --json-string-color: #008000;
+  --json-number-color: #aa00aa;
+  --json-boolean-color: #aa0000;
+  --json-null-color: #777;
+
+  --toggle-icon-color: #f59e0b;
+
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-border-focus: #3b82f6;
+  --input-shadow-focus: rgba(59, 130, 246, 0.35);
+  --input-text: #111827;
+  --input-placeholder: #9ca3af;
+}
+
+/* Dark theme */
+body.dark-theme {
+  --bg-color: #05070a;
+  --text-color: #e5e7eb;
+
+  --box-bg: #111827;
+  --box-border: #3b82f6;
+  --heading-color: #dbeafe;
+  --accent-color: #3b82f6;
+  --accent-glow: rgba(122, 179, 248, 0.35);
+
+  --json-bg: #020617;
+  --json-border: #1f2937;
+
+  --error-bg: #3b0d0f;
+  --error-border: #f87171;
+  --error-text: #fecaca;
+
+  --processing-text: #e5e7eb;
+
+  --json-key-color: #93c5fd;
+  --json-string-color: #6ee7b7;
+  --json-number-color: #c4b5fd;
+  --json-boolean-color: #fca5a5;
+  --json-null-color: #9ca3af;
+
+  --toggle-icon-color: #fde68a;
+
+  --input-bg: #020617;
+  --input-border: #334155;
+  --input-border-focus: #3b82f6;
+  --input-shadow-focus: rgba(59, 130, 246, 0.55);
+  --input-text: #e5e7eb;
+  --input-placeholder: #6b7280;
+
+  background: linear-gradient(135deg, #0a0c12, #182033);
+}
+
+/* Theme animation helpers */
+.toggle-thumb {
+  --tx: 0;
+}
+
+body.dark-theme .toggle-thumb {
+  --tx: 48px;
+}
+
+/* Global transitions */
+body,
+.box,
+.json-output,
+.error-banner,
+.theme-toggle,
+.box-inner,
+.result-heading,
+.result-heading::after {
+  transition:
+    background 0.35s ease,
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    color 0.35s ease,
+    fill 0.35s ease,
+    stroke 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+body.dark-theme .box {
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+body.dark-theme .result-heading::after {
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+body.dark-theme .toggle-track {
+  box-shadow: 0 0 12px var(--accent-glow);
+}

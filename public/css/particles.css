@@ -1,0 +1,35 @@
+/* Floating particles */
+.particle {
+  position: fixed;
+  bottom: -12vh;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 0;
+  width: 4px;
+  height: 4px;
+  background: color-mix(in srgb, var(--accent-color) 70%, transparent);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--accent-color) 80%, transparent),
+    0 0 42px color-mix(in srgb, var(--accent-color) 50%, transparent),
+    0 0 70px color-mix(in srgb, var(--accent-color) 35%, transparent);
+  opacity: 0.4;
+  animation-name: particle-float;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes particle-float {
+  from {
+    transform:
+      translateY(0)
+      translateX(0)
+      translate(var(--parallax-x, 0), var(--parallax-y, 0));
+  }
+  to {
+    transform:
+      translateY(-115vh)
+      translateX(20px)
+      translate(var(--parallax-x, 0), var(--parallax-y, 0));
+  }
+}

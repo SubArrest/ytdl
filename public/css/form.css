@@ -1,0 +1,179 @@
+/* Form submit button */
+.content button {
+  --btn-bg: var(--accent-color);
+
+  background: var(--btn-bg);
+  border: none;
+  color: #ffffff;
+  font-size: 1rem;
+  padding: 12px 26px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+
+  position: relative;
+  overflow: hidden;
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+body.dark-theme .content button {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.content button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--accent-color);
+}
+
+.content button:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 12px var(--accent-color);
+}
+
+.content button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 220%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255,255,255,0.45) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+
+.content button:hover::after {
+  left: 130%;
+}
+
+.go-arrow {
+  display: inline-block;
+  margin-left: 6px;
+  transition: transform 0.25s ease;
+}
+
+.content button:hover .go-arrow {
+  transform: translateX(3px);
+}
+
+.content button[type="submit"] {
+  margin-top: 7px;
+}
+
+/* Form labels */
+.content label {
+  display: block;
+  text-align: left;
+  margin: 10px auto;
+  max-width: 260px;
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+.content label.centered {
+  text-align: center;
+}
+
+/* Text input and dropdown */
+.content input[type="text"],
+.content select {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 8px 10px;
+
+  background: var(--input-bg);
+  color: var(--input-text);
+  border-radius: 8px;
+  border: 1px solid var(--input-border);
+
+  font-size: 0.92rem;
+  font-family: inherit;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.content input[type="text"]::placeholder {
+  color: var(--input-placeholder);
+}
+
+.content input[type="text"]:focus,
+.content select:focus {
+  outline: none;
+  border-color: var(--input-border-focus);
+  box-shadow: 0 0 0 2px var(--input-shadow-focus);
+}
+
+body.dark-theme .content input[type="text"],
+body.dark-theme .content select {
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.8);
+}
+
+/* Dropdown arrow */
+.content select {
+  -webkit-appearance: none;
+  appearance: none;
+
+  padding-right: 32px;
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--input-border) 50%),
+    linear-gradient(-45deg, transparent 50%, var(--input-border) 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px)  50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.content select:focus {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--input-border-focus) 50%),
+    linear-gradient(-45deg, transparent 50%, var(--input-border-focus) 50%);
+}
+
+/* Checkbox */
+.content input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+
+  width: 16px;
+  height: 16px;
+  margin: 0;
+
+  border-radius: 4px;
+  border: 2px solid var(--box-border);
+  background: var(--box-bg);
+  cursor: pointer;
+
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.content input[type="checkbox"]:hover {
+  border-color: var(--accent-color);
+}
+
+.content input[type="checkbox"]:checked {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 8px var(--accent-color);
+}

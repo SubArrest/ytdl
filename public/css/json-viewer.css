@@ -1,0 +1,112 @@
+/* Copy button */
+.copy-btn {
+  align-self: flex-end;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #7ab3f8;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.copy-btn:hover {
+  background: #e3f0ff;
+}
+
+/* Error banner */
+.error-banner {
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 2px solid var(--error-border);
+  background: var(--error-bg);
+  color: var(--error-text);
+  font-weight: bold;
+  border-radius: 6px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.error-banner.hidden {
+  display: none;
+}
+
+/* JSON viewer shell */
+.json-output {
+  background: var(--json-bg);
+  border: 1px solid var(--json-border);
+  border-radius: 8px;
+  padding: 8px 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  counter-reset: line;
+  margin-top: 8px;
+}
+
+/* JSON line */
+.json-line {
+  counter-increment: line;
+  display: grid;
+  grid-template-columns: 3em auto;
+  column-gap: 8px;
+  padding: 0 12px;
+}
+
+.json-line::before {
+  content: counter(line);
+  text-align: right;
+  color: #999;
+  user-select: none;
+}
+
+/* JSON indentation */
+.json-indent {
+  display: inline-block;
+  width: calc(var(--level, 0) * 1.25rem);
+}
+
+/* JSON syntax colours */
+.json-key     { color: var(--json-key-color); }
+.json-string  { color: var(--json-string-color); }
+.json-number  { color: var(--json-number-color); }
+.json-boolean { color: var(--json-boolean-color); }
+.json-null    { color: var(--json-null-color); }
+.json-brace   { color: inherit; }
+
+/* JSON links */
+.json-link {
+  color: #0066cc;
+  text-decoration: underline;
+}
+
+/* JSON collapsible blocks */
+.json-block {
+  position: relative;
+}
+
+.json-line-open {
+  cursor: default;
+}
+
+.json-toggle {
+  display: inline-block;
+  width: 1rem;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  margin-right: 2px;
+  color: #555;
+}
+
+.json-block.collapsed > .json-children {
+  display: none;
+}
+
+.json-block.collapsed .json-toggle {
+  transform: rotate(-90deg);
+}

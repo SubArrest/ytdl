@@ -1,0 +1,121 @@
+/* Theme toggle */
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Toggle track */
+.toggle-track {
+  width: 78px;
+  height: 40px;
+  background: var(--json-border);
+  border-radius: 999px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  transition: background 0.3s ease;
+  box-shadow: 0 2px 8px #0005;
+}
+
+/* Toggle thumb */
+.toggle-thumb {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  background: var(--box-bg);
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.3s ease, background 0.3s ease;
+  box-shadow: 0 2px 6px #0006;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--toggle-icon-color);
+}
+
+/* Toggle icons */
+.icon-sun,
+.icon-moon {
+  position: absolute;
+  transition: opacity 0.25s ease;
+  transform: translateY(2px);
+}
+
+.icon-svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Sun animation */
+.icon-sun.spin .icon-svg {
+  animation: sun-spin 0.4s ease-out;
+}
+
+@keyframes sun-spin {
+  0%   { transform: rotate(0deg); }
+  60%  { transform: rotate(260deg) scale(1.1); }
+  100% { transform: rotate(220deg) scale(1); }
+}
+
+/* Moon animation */
+.icon-moon.wobble .icon-svg {
+  animation: moon-wobble 0.45s ease-out;
+}
+
+@keyframes moon-wobble {
+  0%   { transform: rotate(0deg); }
+  30%  { transform: rotate(-12deg) translateX(-1px); }
+  60%  { transform: rotate(8deg) translateX(1px); }
+  100% { transform: rotate(0deg) translateX(0); }
+}
+
+.icon-sun {
+  opacity: 1;
+}
+
+.icon-moon {
+  opacity: 0;
+}
+
+/* Dark mode toggle states */
+body.dark-theme .toggle-track {
+  background: var(--accent-color);
+}
+
+body.dark-theme .toggle-thumb {
+  transform: translateX(49px);
+}
+
+body.dark-theme .icon-sun {
+  opacity: 0;
+}
+
+body.dark-theme .icon-moon {
+  opacity: 1;
+}
+
+/* Toggle squish */
+@keyframes toggle-squish {
+  0%   { transform: scale(1) translateX(var(--tx, 0)); }
+  40%  { transform: scale(1.2, 0.8) translateX(var(--tx, 0)); }
+  100% { transform: scale(1) translateX(var(--tx, 0)); }
+}
+
+.toggle-thumb.squish {
+  animation: toggle-squish 0.22s ease;
+}
