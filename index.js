@@ -104,15 +104,13 @@ let downloadingCurrentList = [];
 const sendError = (res, code, message, ytID) => {
 	if (ytID) downloadingCurrentList = downloadingCurrentList.filter(id => id !== ytID);
 
-	return res.status(code).send({ message });
+	return res.status(code).json({ message });
 };
 
 const sendData = (res, video, ytID, format) => {
 	let thumb = `https://i.ytimg.com/vi/${ytID}/maxresdefault.jpg`;
 	httpsGet(thumb, r => {
-		thumb = r.statusCode === 404
-			? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg`
-			: thumb;
+		thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${ytID}/hqdefault.jpg` : thumb;
 
 		getAverageColor(thumb)
 			.then(async color => {
@@ -167,17 +165,9 @@ app.get("/download/:format?", async (req, res) => {
 
 	const ytID = youtube_parser(ytURL);
 
-	if (!ytURL) {
-		return sendError(res, 400, "Not A Valid Youtube Video URL Or Video ID");
-	}
-
-	if (!ytID) {
-		return sendError(res, 400, "Not A Valid Youtube Video URL Or Video ID");
-	}
-
-	if (downloadingCurrentList.includes(ytID)) {
-		return sendError(res, 429, "This video is already being processed. Please try again shortly.");
-	}
+	if (!ytURL) return sendError(res, 400, "Not A Valid Youtube Video URL Or Video ID");
+	if (!ytID) return sendError(res, 400, "Not A Valid Youtube Video URL Or Video ID");
+	if (downloadingCurrentList.includes(ytID)) return sendError(res, 429, "This video is already being processed. Please try again shortly.");
 
 	const count = await videosDB.count({ where: { pk: `${format}-${ytID}` } });
 
