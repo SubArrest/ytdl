@@ -269,6 +269,25 @@ app.get("/download/:format?", async (req, res) => {
 	}
 });
 
+app.get("/showcache", async (req, res) => {
+	const videos = await videosDB.findAll();
+
+	let out = [];
+	videos.every(async video => {
+		let push = await video.get();
+
+		delete push.pk;
+		delete push.createdAt;
+		delete push.lastUsed;
+		if (!push.discord) delete push.discord;
+		if (!push.imgur) delete push.imgur;
+
+		out.push(push);
+	});
+
+	res.status(200).json(videos);
+});
+
 /*let streamers = {};
 let cache = {};
 const stop = (id,del) => {

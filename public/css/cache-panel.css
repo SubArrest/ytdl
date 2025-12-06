@@ -1,0 +1,133 @@
+/* ==============================
+   Cache panel container (button + list)
+   ============================== */
+.cache-panel {
+  position: fixed;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  z-index: 9999;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* ==============================
+   Cache toggle button
+   ============================== */
+.cache-toggle {
+  background: var(--box-bg);
+  color: var(--text-color);
+  border: 1px solid var(--accent-color);
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.cache-toggle:hover {
+  background: var(--json-bg);
+  box-shadow: 0 0 12px var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+/* Small badge with count */
+.cache-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background: var(--accent-color);
+  color: #fff;
+}
+
+/* ==============================
+   Cache dropdown list
+   ============================== */
+.cache-list {
+  position: absolute;
+
+  /* open above the button (desktop and mobile) */
+  bottom: 36px;
+  left: 0;
+
+  width: 260px;
+  max-height: 300px;
+  overflow-y: auto;
+
+  background: var(--box-bg);
+  border: 1px solid var(--accent-color);
+  border-radius: 12px;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.5);
+
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* visible state */
+.cache-panel--open .cache-list {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* Loading text */
+.cache-loading {
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+/* ==============================
+   Cache items
+   ============================== */
+.cache-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--json-border);
+  cursor: pointer;
+}
+
+.cache-item:last-child {
+  border-bottom: none;
+}
+
+.cache-item:hover {
+  background: var(--json-bg);
+}
+
+.cache-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.cache-meta {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-top: 2px;
+  color: var(--text-color);
+}
+
+/* ==============================
+   Mobile tweaks
+   ============================== */
+@media (max-width: 768px) {
+  .cache-panel {
+    bottom: 0.6rem;
+    left: 0.6rem;
+  }
+
+  .cache-list {
+    max-height: 55vh; /* small screen safety */
+  }
+}

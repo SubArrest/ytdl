@@ -48,12 +48,11 @@ if (form) {
         window.lastJsonData = data;
         if (jsonOutput) window.renderJsonInto(jsonOutput, data);
       } else {
-        if (errorBanner) {
-          errorBanner.classList.add('hidden');
-        }
+        if (errorBanner) errorBanner.classList.add('hidden');
 
         window.lastJsonData = data;
         if (jsonOutput) window.renderJsonInto(jsonOutput, data);
+        if (window.updateCacheCountOnly) window.updateCacheCountOnly();
       }
     } catch (err) {
       if (errorBanner) {

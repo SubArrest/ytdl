@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="css/json-viewer.css">
     <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/responsive.css">
+    <link rel="stylesheet" href="css/cache-panel.css">
 
     <!-- JS -->
     <script src="js/json-viewer.js" defer></script>
@@ -27,6 +28,7 @@
     <script src="js/form-setup.js" defer></script>
     <script src="js/clipboard.js" defer></script>
     <script src="js/form-submit.js" defer></script>
+    <script src="js/cache-panel.js" defer></script>
 </head>
 <body>
 
@@ -60,6 +62,17 @@
     </span>
   </span>
 </button>
+
+<div id="cache-panel" class="cache-panel">
+  <button id="cache-toggle" class="cache-toggle" type="button" aria-expanded="false">
+    Cache
+    <span id="cache-count" class="cache-count">0</span>
+  </button>
+
+  <div id="cache-list" class="cache-list" aria-label="Cached videos">
+    <div class="cache-loading">Loading cache…</div>
+  </div>
+</div>
 
 <!--
   MAIN LAYOUT
