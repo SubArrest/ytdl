@@ -1,19 +1,42 @@
 /* Mobile layout */
 @media (max-width: 768px) {
+  /* Base mobile body */
   body {
-    min-height: 100vh;
-    height: auto;
+    margin: 0;
+    background: var(--bg-color);
+    overflow-y: auto;
+    /* allow it to grow with content; no fixed height */
+    min-height: 100svh;
+  }
+
+  /* BEFORE any results: center page vertically */
+  body:not(.has-results) {
+    display: flex;
+    align-items: center;      /* vertical centering */
+    justify-content: center;  /* horizontal centering */
+    /* flex + min-height gives us centering without clipping */
+  }
+
+  /* AFTER results: normal scrolling layout */
+  body.has-results {
     display: block;
-    overflow: auto;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  /* Give a little extra top spacing once results are visible */
+  .page.show-results {
+    margin-top: 1.5rem;
   }
 
   .container {
-    width: 85vmin;
-  }
-
-  .result-wrapper {
-    flex-direction: column;
-    align-items: center;
+    width: 100%;
+    margin: 0 auto 1.5rem;
   }
 
   .box-inner {

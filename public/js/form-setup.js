@@ -49,17 +49,13 @@ function youtube_parser(link) {
   if (validPathDomains.test(parsed.href) && !id) {
     const paths = parsed.pathname.split("/").filter(Boolean);
 
-    if (hostname === "youtu.be") {
-      id = paths[0];
-    } else {
-      id = paths[1];
-    }
+    if (hostname === "youtu.be") id = paths[0];
+    else id = paths[1];
+
   } else if (
     parsed.hostname &&
     !validQueryDomains.has(parsed.hostname)
-  ) {
-    return null;
-  }
+  ) return null;
 
   if (!id) return null;
 
@@ -69,9 +65,7 @@ function youtube_parser(link) {
   return id;
 }
 
-function makeWatchUrl(id) {
-  return `https://www.youtube.com/watch?v=${id}`;
-}
+const makeWatchUrl = id => `https://www.youtube.com/watch?v=${id}`;
 
 // Add/remove error styling on the input
 function setInputValidity(input, isValid) {
@@ -117,12 +111,6 @@ window.addEventListener("DOMContentLoaded", () => {
   const url = new URL(window.location.href);
   const linkInput = document.querySelector('input[name="textField"]');
   if (!linkInput) return;
-
-  const normaliseYoutube = (value) => {
-    const id = youtube_parser(value);
-    if (!id) return value.trim();
-    return makeWatchUrl(id);
-  };
 
   let linkFromUrl = url.searchParams.get("link");
 

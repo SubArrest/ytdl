@@ -5,6 +5,7 @@ const jsonOutput = document.getElementById('json-output');
 const processingIndicator = document.getElementById('processing-indicator');
 const errorBanner = document.getElementById('error-banner');
 const resultHeading = document.getElementById('result-heading');
+const body = document.body;
 
 if (form) {
   form.addEventListener('submit', async (e) => {
@@ -63,9 +64,10 @@ if (form) {
       window.lastJsonData = { error: err.message };
       if (jsonOutput) window.renderJsonInto(jsonOutput, window.lastJsonData);
     } finally {
-      processingIndicator?.classList.add('hidden');
+      processingIndicator.classList.add('hidden');
 
-      page?.classList.add('show-results');
+      page.classList.add('show-results');
+      body.classList.add('has-results');
 
       if (resultHeading) {
         resultHeading.classList.remove('underline-animate');
