@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/responsive.css">
     <link rel="stylesheet" href="css/cache-panel.css">
+    <link rel="stylesheet" href="css/player.css">
 
     <!-- JS -->
     <script src="js/json-viewer.js" defer></script>
@@ -27,6 +28,7 @@
     <script src="js/particles.js" defer></script>
     <script src="js/form-setup.js" defer></script>
     <script src="js/clipboard.js" defer></script>
+    <script src="js/audio-player.js" defer></script>
     <script src="js/form-submit.js" defer></script>
     <script src="js/cache-panel.js" defer></script>
 </head>
@@ -138,6 +140,29 @@
         </div>
       </div>
     </div>
+
+    <!-- Mini audio player (shown only for audio videourl results) -->
+    <div id="mini-audio-player" class="mini-audio-player mini-audio-player--hidden" aria-hidden="true">
+      <button id="mini-audio-play" class="mini-audio-play" type="button" aria-label="Play audio">
+        <svg class="mini-audio-icon mini-audio-icon--play" viewBox="0 0 24 24">
+          <polygon points="8,5 19,12 8,19" fill="currentColor" />
+        </svg>
+
+        <svg class="mini-audio-icon mini-audio-icon--pause" viewBox="0 0 24 24">
+          <rect x="6" y="5" width="4" height="14" fill="currentColor" />
+          <rect x="14" y="5" width="4" height="14" fill="currentColor" />
+        </svg>
+      </button>
+
+      <div class="mini-audio-track" id="mini-audio-track">
+        <div class="mini-audio-track-line"></div>
+        <div class="mini-audio-track-fill" id="mini-audio-track-fill"></div>
+        <div class="mini-audio-thumb" id="mini-audio-thumb"></div>
+      </div>
+    </div>
+
+    <!-- Hidden audio element used by the mini player -->
+    <audio id="mini-audio" preload="none"></audio>
   </div>
 
 </div>

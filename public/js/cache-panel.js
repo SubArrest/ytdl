@@ -77,6 +77,7 @@ function renderCacheList(items) {
       if (typeof renderJsonInto === 'function') {
         const out = document.getElementById('json-output');
         renderJsonInto(out, item);
+        if (window.updateMiniPlayerForData) window.updateMiniPlayerForData(item);
       }
       if (typeof lastJsonData !== 'undefined') {
         lastJsonData = item;

@@ -47,12 +47,14 @@ if (form) {
 
         window.lastJsonData = data;
         if (jsonOutput) window.renderJsonInto(jsonOutput, data);
+        if (window.updateMiniPlayerForData) window.updateMiniPlayerForData(data);
       } else {
         if (errorBanner) errorBanner.classList.add('hidden');
 
         window.lastJsonData = data;
         if (jsonOutput) window.renderJsonInto(jsonOutput, data);
         if (window.updateCacheCountOnly) window.updateCacheCountOnly();
+        if (window.updateMiniPlayerForData) window.updateMiniPlayerForData(data);
       }
     } catch (err) {
       if (errorBanner) {
@@ -62,6 +64,7 @@ if (form) {
 
       window.lastJsonData = { error: err.message };
       if (jsonOutput) window.renderJsonInto(jsonOutput, window.lastJsonData);
+      if (window.updateMiniPlayerForData) window.updateMiniPlayerForData(window.lastJsonData);
     } finally {
       processingIndicator.classList.add('hidden');
 

@@ -1,0 +1,99 @@
+/* Wrapper under the result box */
+.mini-audio-player {
+  margin: 16px auto 0;
+  max-width: 420px;
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+/* Hidden when not in use */
+.mini-audio-player--hidden {
+  display: none;
+}
+
+/* Play / pause button */
+.mini-audio-play {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 2px solid var(--accent-color);
+  background: var(--box-bg);
+  color: var(--text-color);      /* SVG uses currentColor */
+  cursor: pointer;
+
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* Icons inside the button */
+.mini-audio-icon {
+  width: 20px;
+  height: 20px;
+  display: none;
+  pointer-events: none;
+}
+
+/* JS toggles these classes */
+.mini-audio-play.is-playing .mini-audio-icon--pause {
+  display: block;
+}
+.mini-audio-play.is-playing .mini-audio-icon--play {
+  display: none;
+}
+.mini-audio-play:not(.is-playing) .mini-audio-icon--play {
+  display: block;
+}
+
+/* Track bar */
+.mini-audio-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);   /* subtle dark line */
+  position: relative;
+  cursor: pointer;
+}
+
+/* Filled portion of track */
+.mini-audio-track-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--accent-color);
+}
+
+/* Thumb dot */
+.mini-audio-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.7);
+}
+
+/* Desktop: float player under the result box without affecting alignment */
+@media (min-width: 900px) {
+  .result-container {
+    position: relative;
+  }
+
+  .mini-audio-player {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 16px;
+  }
+}
