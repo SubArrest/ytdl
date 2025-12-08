@@ -1,5 +1,5 @@
 import { Sequelize, DataTypes } from "sequelize";
-import { createWriteStream, unlink } from "fs";
+import { unlink } from "fs";
 import { get as httpsGet } from "https";
 
 import { YtDlp } from 'ytdlp-nodejs';
@@ -11,6 +11,9 @@ import { ImgurClient } from "imgur";
 import { toDataURL } from "qrcode";
 import { getAverageColor } from "fast-average-color-node";
 import { PassThrough } from "stream";
+
+import ffmpeg from "fluent-ffmpeg";
+ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 
 import { config } from "dotenv";
 config({
@@ -242,19 +245,22 @@ app.get("/download/:format?", async (req, res) => {
 
 	console.log(`downloading ${ytID} ${format}...`);
 
-	try {
-		await ytdlp.downloadAsync(ytURL, {
-			format: {
-				filter: filter,
-				type: format,
-				quality: 'highest',
-			},
-			output: `${downloadsPath}/${ytID}.${format}`
-		});
+	ytdlp.download(ytURL,{
+        format: {
+            filter,
+            type: format,
+            quality: 'highest',
+        },
+        output: `${downloadsPath}/${ytID}.${format}`
+    })
+    .on('progress', (progress) => {
+        //console.log(progress);
+    })
+    .on('exit', (code) => {
+        if(code === 0) return sendData(res, video, ytID, format);
 
-		sendData(res, video, ytID, format);
-	} catch (err) {
-		unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
+		//error code
+        unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
 			if (err2) console.error(err2);
 		});
 
@@ -266,7 +272,21 @@ app.get("/download/:format?", async (req, res) => {
 			"Error while trying to get video",
 			ytID
 		);
-	}
+    })
+    .on('error', (err) => {
+        unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
+			if (err2) console.error(err2);
+		});
+
+		console.error(err);
+
+		return sendError(
+			res,
+			500,
+			"Error while trying to get video",
+			ytID
+		);
+    });
 });
 
 app.get("/showcache", async (req, res) => {
@@ -288,7 +308,7 @@ app.get("/showcache", async (req, res) => {
 	res.status(200).json(videos);
 });
 
-/*let streamers = {};
+let streamers = {};
 let cache = {};
 const stop = (id,del) => {
     if (streamers[id]) {
@@ -306,11 +326,16 @@ app.get("/stream", async (req, res) => {
 		});
     }
 
-    try {
-        const info = await ytdl.getInfo(link);
-		const video = info.videoDetails;
-        const id = video.videoId;
-		
+	try {
+		const info = await youtube.getVideo(link);
+
+		const dur = info.duration;
+		const duration =
+			dur.seconds +
+			(dur.minutes * 60) +
+			(dur.hours * 60 * 60) +
+			(dur.days * 24 * 60 * 60);
+
 		let thumb = `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
 		httpsGet(thumb, (r) => {
 			thumb = r.statusCode === 404 ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : thumb;
@@ -318,22 +343,23 @@ app.get("/stream", async (req, res) => {
 			getAverageColor(thumb)
 			.then(color => {
 				return res.status(200).json({
-					videoId: id,
-					videoUrl: video.video_url,
-					videoTitle: video.title,
-					videoDuration: video.lengthSeconds,
-					thumbnail: {image: thumb, average: color},
-					url: `https://vs.substuff.org/api/ytdl/stream/audio?id=${id}`,
-					channel: video.author.name
+					id: info.id,
+					videourl: `https://vs.substuff.org/api/ytdl/stream/audio?id=${id}`,
+					youtubeurl: `https://www.youtube.com/watch?v=${info.id}`,
+					title: info.title,
+					channel: info.channel.title,
+					duration,
+					image: thumb,
+					color: color.rgb
 				});
 			});
 		});
-    } catch (err) {
-        console.log(err);
+	} catch (err) {
+		console.log(err.message);
 		return res.status(500).send({
 			message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
 		});
-    }
+	}
 });
 
 app.get("/stream/audio", async (req, res) => {
@@ -355,14 +381,24 @@ app.get("/stream/audio", async (req, res) => {
 	if (!streamers[id]) {
         console.log(`Starting new stream for: ${id}`);
 
-		const info = await ytdl.getInfo(link);
-		const videoDuration = info.videoDetails.lengthSeconds;
-        const stream = ytdl.downloadFromInfo(info, {
-            quality: "highestaudio",
-            filter: (format) => format.container === "mp4" && format.hasAudio && format.hasVideo
-        });
+		const info = await youtube.getVideo(link);
+		const dur = info.duration;
+		const videoDuration =
+			dur.seconds +
+			(dur.minutes * 60) +
+			(dur.hours * 60 * 60) +
+			(dur.days * 24 * 60 * 60);
 
-        const ffmpegStream = ffmpeg(stream)
+		let stream = new PassThrough();
+        ytdlp.stream(link, {
+            format: {
+				filter: 'audioonly',
+				type: 'mp3',
+				quality: 'highest'
+			}
+        }).pipe(stream);
+
+        const ffmpegStream = ffmpeg(stream) //apply codec usable by http shit (probably bullshiting here but hey if it works dont fix it)
             .format("mp3")
             .audioCodec("libmp3lame")
             .audioBitrate(192)
@@ -433,7 +469,7 @@ app.get("/stream/audio", async (req, res) => {
 		console.log(`[${id}] Listener Left, Remaining: ${streamers[id].listeners}`);
         if (streamers[id].listeners <= 0 && streamers[id].progress <= 0.99) stop(id);
     });
-});*/
+});
 
 app.get("/playlist", (req, res) => {
 	const link = req.query.link;
