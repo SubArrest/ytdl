@@ -12,8 +12,7 @@ import { toDataURL } from "qrcode";
 import { getAverageColor } from "fast-average-color-node";
 import { PassThrough } from "stream";
 
-import ffmpeg from "fluent-ffmpeg";
-ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
+import { spawn } from "child_process";
 
 import { config } from "dotenv";
 config({
@@ -355,120 +354,190 @@ app.get("/stream", async (req, res) => {
 			});
 		});
 	} catch (err) {
-		console.log(err.message);
-		return res.status(500).send({
-			message: "Unable To Fetch Video, Likely Copyright Or Region Locked"
-		});
+		console.error(err.message);
+		return sendError(
+			res,
+			500,
+			"Unable To Fetch Video, Likely Copyright Or Region Locked"
+		);
 	}
 });
 
 app.get("/stream/audio", async (req, res) => {
 	const id = req.query.id;
-
 	if (!id) return res.status(400).json({ message: "Missing video ID" });
 
 	const link = `https://www.youtube.com/watch?v=${id}`;
+	res.setHeader("Content-Type", "audio/mpeg");
 
-	res.setHeader('Content-Type', 'audio/mpeg');
+	res.on("error", (err) => {
+		if (err.code === "EPIPE" || err.code === "ECONNRESET") return;
+		console.error(`[${id}] Response error:`, err);
+	});
 
 	if (cache[id]) {
 		console.log(`Serving cached audio for: ${id}`);
 		const cachedBuffer = Buffer.concat(cache[id].buffer);
-
 		return res.end(cachedBuffer);
 	}
 
 	if (!streamers[id]) {
-        console.log(`Starting new stream for: ${id}`);
+		console.log(`Starting new stream for: ${id}`);
 
 		const info = await youtube.getVideo(link);
 		const dur = info.duration;
 		const videoDuration =
 			dur.seconds +
-			(dur.minutes * 60) +
-			(dur.hours * 60 * 60) +
-			(dur.days * 24 * 60 * 60);
+			dur.minutes * 60 +
+			dur.hours * 3600 +
+			dur.days * 86400;
 
-		let stream = new PassThrough();
-        ytdlp.stream(link, {
-            format: {
-				filter: 'audioonly',
-				type: 'mp3',
-				quality: 'highest'
-			}
-        }).pipe(stream);
-
-        const ffmpegStream = ffmpeg(stream) //apply codec usable by http shit (probably bullshiting here but hey if it works dont fix it)
-            .format("mp3")
-            .audioCodec("libmp3lame")
-            .audioBitrate(192)
-            .on("end", () => {
-                console.log(`[${id}] Stream processed`);
-				Object.keys(cache).forEach(key => {
-					clearTimeout(cache[key].timeout);
-					console.log(`Cleared cache timeout for ${key}`);
-					delete cache[key];
-				});
-
-                cache[id] = {
-					buffer: streamers[id].bufferChunks,
-					timeout: setTimeout(() => {
-						console.log(`Cache expired for: ${id}`);
-						delete cache[id];
-					}, Math.round( Math.max(900, Math.min(videoDuration, 7200)) ) * 1000)
-				}
-				stop(id,true);
-            })
-			.on("progress", progress => {
-				if (streamers[id]) { 
-					const time = progress.timemark;
-					const [hours, minutes, seconds] = time.split(':');
-					const totalSeconds = Math.round( (+hours) * 60 * 60 + (+minutes) * 60 + (+seconds) );
-					streamers[id].progress = totalSeconds/videoDuration;
+		const inputStream = new PassThrough();
+		ytdlp
+			.stream(link, {
+				format: {
+					filter: "audioonly",
+					type: "mp3",
+					quality: "highest"
 				}
 			})
-            .on("error", (err) => {
-                if (err.message !== "ffmpeg was killed with signal SIGKILL") {
-					console.error(err);
-					stop(id,true);
-				}
-            });
-		
-        const passThrough = new PassThrough();
+			.pipe(inputStream);
+
+		const ffArgs = [
+			"-loglevel", "error",
+			"-progress", "pipe:2",
+			"-i", "pipe:0",
+			"-vn",
+			"-acodec", "libmp3lame",
+			"-b:a", "192k",
+			"-f", "mp3",
+			"pipe:1"
+		];
+
+		const ff = spawn("ffmpeg", ffArgs, {
+			stdio: ["pipe", "pipe", "pipe"]
+		});
+
+		ff.stdin.on("error", (err) => {
+			if (err.code === "EPIPE") return;
+			console.error(`[${id}] ffmpeg stdin error:`, err);
+		});
+
+		inputStream.pipe(ff.stdin);
+
+		const passThrough = new PassThrough();
 		const bufferChunks = [];
-        ffmpegStream.pipe(passThrough);
 
-		passThrough.on("data", (chunk) => {
-            bufferChunks.push(chunk);
-        });
+		passThrough.on("error", (err) => {
+			if (err.code === "EPIPE" || err.code === "ECONNRESET") return;
+			console.error(`[${id}] PassThrough error:`, err);
+		});
 
-        streamers[id] = {
-            stream,
-            process: ffmpegStream,
-            output: passThrough,
+		ff.stdout.on("data", (chunk) => {
+			bufferChunks.push(chunk);
+			passThrough.write(chunk);
+		});
+
+		ff.stdout.on("end", () => {
+			passThrough.end();
+		});
+
+		ff.stdout.on("error", (err) => {
+			if (err.code === "EPIPE") return;
+			console.error(`[${id}] ffmpeg stdout error:`, err);
+		});
+		ff.stderr.on("error", (err) => {
+			if (err.code === "EPIPE") return;
+			console.error(`[${id}] ffmpeg stderr error:`, err);
+		});
+
+		let currentOut = {};
+		ff.stderr.setEncoding("utf8");
+
+		ff.stderr.on("data", (data) => {
+			const lines = data.split(/\r?\n/);
+
+			for (const line of lines) {
+				if (!line.includes("=")) continue;
+
+				const [key, value] = line.split("=");
+
+				if (key === "out_time_ms") {
+					currentOut.time = parseInt(value, 10) / 1_000_000;
+				}
+
+				if (key === "progress" && value === "continue") {
+					if (streamers[id] && currentOut.time != null) {
+						streamers[id].progress = Math.min(
+							1,
+							currentOut.time / videoDuration
+						);
+					}
+					currentOut = {};
+				}
+
+				if (key === "progress" && value === "end") {
+					if (streamers[id]) streamers[id].progress = 1;
+				}
+			}
+		});
+
+		ff.on("close", (code, sig) => {
+			if (sig !== "SIGKILL") {
+				console.log(`[${id}] Stream processed`);
+
+				for (const key of Object.keys(cache)) {
+					clearTimeout(cache[key].timeout);
+					delete cache[key];
+				}
+
+				cache[id] = {
+					buffer: bufferChunks,
+					timeout: setTimeout(() => delete cache[id], 7200 * 1000)
+				};
+			}
+
+			stop(id, true);
+		});
+
+		ff.on("error", (err) => {
+			console.error(`[${id}] ffmpeg process error:`, err);
+			stop(id, true);
+		});
+
+		streamers[id] = {
+			stream: inputStream,
+			process: ff,
+			output: passThrough,
 			progress: 0,
 			bufferChunks,
-            listeners: 0
-        };
-    }
+			listeners: 0
+		};
+	}
 
-    if (streamers[id].progress !== 1) {
+	if (streamers[id].progress !== 1) {
 		streamers[id].listeners++;
-    
+
 		for (const chunk of streamers[id].bufferChunks) {
-			res.write(chunk);
+			try {
+				res.write(chunk);
+			} catch (err) {
+				if (err.code === "EPIPE" || err.code === "ECONNRESET") return;
+				console.error(`[${id}] res.write error:`, err);
+			}
 		}
 
 		streamers[id].output.pipe(res);
-		console.log(`[${id}] Listener Joined: ${streamers[id].listeners}`);
 	}
 
-    req.on("close", () => {
-        streamers[id].listeners--;
+	req.on("close", () => {
+		streamers[id].listeners--;
 		if (streamers[id].listeners < 0) streamers[id].listeners = 0;
-		console.log(`[${id}] Listener Left, Remaining: ${streamers[id].listeners}`);
-        if (streamers[id].listeners <= 0 && streamers[id].progress <= 0.99) stop(id);
-    });
+
+		if (streamers[id].listeners <= 0 && streamers[id].progress <= 0.99) {
+			stop(id);
+		}
+	});
 });
 
 app.get("/playlist", (req, res) => {
