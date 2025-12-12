@@ -1,23 +1,17 @@
 const cachePanelEl = document.getElementById('cache-panel');
 const cacheToggleEl = document.getElementById('cache-toggle');
-const cacheListEl   = document.getElementById('cache-list');
-const cacheCountEl  = document.getElementById('cache-count');
+const cacheListEl = document.getElementById('cache-list');
+const cacheCountEl = document.getElementById('cache-count');
 
 let cacheOpen = false;
 let cacheData = [];
 
-/* -----------------------------
-   Open / close helpers
------------------------------ */
 function setCacheOpen(open) {
   cacheOpen = open;
   cachePanelEl.classList.toggle('cache-panel--open', open);
   cacheToggleEl.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
-/* -----------------------------
-   Load cache from /showcache
------------------------------ */
 window.updateCacheCountOnly = async function () {
   try {
     const res = await fetch('/api/ytdl/showcache');
@@ -46,9 +40,6 @@ async function loadCache() {
   }
 }
 
-/* -----------------------------
-   Render cache list
------------------------------ */
 function renderCacheList(items) {
   if (!items.length) {
     cacheListEl.innerHTML = '<div class="cache-loading">No cached videos.</div>';
@@ -73,48 +64,32 @@ function renderCacheList(items) {
     div.addEventListener('click', () => {
       setCacheOpen(false);
 
-      // Push JSON into your existing viewer
-      if (typeof renderJsonInto === 'function') {
-        const out = document.getElementById('json-output');
-        renderJsonInto(out, item);
-        if (window.updateMiniPlayerForData) window.updateMiniPlayerForData(item);
-      }
-      if (typeof lastJsonData !== 'undefined') {
-        lastJsonData = item;
-      }
+      const out = document.getElementById('json-output');
+      renderJsonInto(out, item);
+      window.updateMiniPlayerForData(item);
+      lastJsonData = item;
 
-      // Ensure result box is visible and animate heading
       const pageEl = document.querySelector('.page');
-      if (pageEl) pageEl.classList.add('show-results');
+      pageEl.classList.add('show-results');
 
       const heading = document.getElementById('result-heading');
-      if (heading) {
-        heading.classList.remove('underline-animate');
-        requestAnimationFrame(() => heading.classList.add('underline-animate'));
-      }
+      heading.classList.remove('underline-animate');
+      requestAnimationFrame(() => heading.classList.add('underline-animate'));
     });
 
     cacheListEl.appendChild(div);
   });
 }
 
-/* -----------------------------
-   Button click
------------------------------ */
 cacheToggleEl.addEventListener('click', (e) => {
   e.stopPropagation();
 
   const willOpen = !cacheOpen;
   setCacheOpen(willOpen);
 
-  if (willOpen) {
-    loadCache();
-  }
+  if (willOpen) loadCache();
 });
 
-/* -----------------------------
-   Close when clicking outside
------------------------------ */
 document.addEventListener('click', (e) => {
   if (!cacheOpen) return;
   if (cachePanelEl.contains(e.target)) return;

@@ -3,7 +3,12 @@ import { unlink } from "fs";
 import { get as httpsGet } from "https";
 
 import { YtDlp } from 'ytdlp-nodejs';
-const ytdlp = new YtDlp();
+import {
+  downloadLatestYtDlp,
+  createAudioOnlyDownload
+} from './ytDlpAudioOnly.js';
+const ytPath = await downloadLatestYtDlp({ destDir: './bin' });
+const ytdlp = new YtDlp({ binaryPath: ytPath });
 await ytdlp.downloadFFmpeg();
 
 import YouTube from "simple-youtube-api";
@@ -244,67 +249,98 @@ app.get("/download/:format?", async (req, res) => {
 
 	console.log(`downloading ${ytID} ${format}...`);
 
-	ytdlp.download(ytURL,{
-        format: {
-            filter,
-            type: format,
-            quality: 'highest',
-        },
-        output: `${downloadsPath}/${ytID}.${format}`
-    })
-    .on('progress', (progress) => {
-        //console.log(progress);
-    })
-    .on('exit', (code) => {
-        if(code === 0) return sendData(res, video, ytID, format);
-
-		//error code
-        unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
-			if (err2) console.error(err2);
+	if (filter === "audioonly") {
+		const job = createAudioOnlyDownload({
+			videoUrl: ytURL,
+			format,
+			ytdlpPath: ytPath,
+			outputFilePath: `${downloadsPath}/${ytID}.${format}`
 		});
 
-		console.error(err);
-
-		return sendError(
-			res,
-			500,
-			"Error while trying to get video",
-			ytID
-		);
-    })
-    .on('error', (err) => {
-        unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
-			if (err2) console.error(err2);
+		job.on('progress', (p) => {
+			//console.log('progress:', p);
 		});
 
-		console.error(err);
+		job.on('finished', () => {
+			return sendData(res, video, ytID, format);
+		});
 
-		return sendError(
-			res,
-			500,
-			"Error while trying to get video",
-			ytID
-		);
-    });
+		job.on('error', (err) => {
+			unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
+				if (err2) console.error(err2);
+			});
+
+			console.error(err);
+
+			return sendError(
+				res,
+				500,
+				"Error while trying to get video",
+				ytID
+			);
+		});
+	}
+	else {
+		ytdlp.download(ytURL,{
+			format: {
+				filter,
+				type: format,
+				quality: 'highest',
+			},
+			output: `${downloadsPath}/${ytID}.${format}`
+		})
+		.on('progress', (progress) => {
+			//console.log(progress);
+		})
+		.on('exit', (code) => {
+			if(code === 0) return sendData(res, video, ytID, format);
+
+			//error code
+			unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
+				if (err2) console.error(err2);
+			});
+
+			console.error(err);
+
+			return sendError(
+				res,
+				500,
+				"Error while trying to get video",
+				ytID
+			);
+		})
+		.on('error', (err) => {
+			unlink(`${downloadsPath}/${ytID}.${format}`, err2 => {
+				if (err2) console.error(err2);
+			});
+
+			console.error(err);
+
+			return sendError(
+				res,
+				500,
+				"Error while trying to get video",
+				ytID
+			);
+		});
+	}
 });
 
 app.get("/showcache", async (req, res) => {
 	const videos = await videosDB.findAll();
 
-	let out = [];
-	videos.every(async video => {
-		let push = await video.get();
+	const out = await Promise.all(
+		videos.map(async video => {
+			const {id,format,qr,videourl,youtubeurl,title,channel,image,color,discord,imgur} = await video.get();
 
-		delete push.pk;
-		delete push.createdAt;
-		delete push.lastUsed;
-		if (!push.discord) delete push.discord;
-		if (!push.imgur) delete push.imgur;
+			return {id,format,qr,videourl,youtubeurl,title,channel,image,color,
+				...(discord != null && { discord }),
+				...(imgur != null && { imgur })
+			}
+		})
+	);
 
-		out.push(push);
-	});
-
-	res.status(200).json(videos);
+	res.status(200).json(out);
 });
 
 let streamers = {};
@@ -511,12 +547,16 @@ app.get("/stream/audio", async (req, res) => {
 			output: passThrough,
 			progress: 0,
 			bufferChunks,
-			listeners: 0
+			listeners: 0,
+			idleTimeout: null
 		};
 	}
 
 	if (streamers[id].progress !== 1) {
 		streamers[id].listeners++;
+
+		clearTimeout(streamers[id].idleTimeout);
+    	streamers[id].idleTimeout = null;
 
 		for (const chunk of streamers[id].bufferChunks) {
 			try {
@@ -528,14 +568,31 @@ app.get("/stream/audio", async (req, res) => {
 		}
 
 		streamers[id].output.pipe(res);
+		console.log(`[${id}] Listener Joined: ${streamers[id].listeners}`);
 	}
 
 	req.on("close", () => {
-		streamers[id].listeners--;
-		if (streamers[id].listeners < 0) streamers[id].listeners = 0;
+		const streamer = streamers[id];
+  		if (!streamer) return;
 
-		if (streamers[id].listeners <= 0 && streamers[id].progress <= 0.99) {
-			stop(id);
+		streamer.listeners--;
+		if (streamer.listeners < 0) streamer.listeners = 0;
+		console.log(`[${id}] Listener Left, Remaining: ${streamer.listeners}`);
+
+		if (streamer.listeners > 0) return;
+
+		if (!streamer.idleTimeout && streamer.progress <= 0.99) {
+			streamer.idleTimeout = setTimeout(() => {
+				const s = streamers[id];
+				if (!s) return;
+
+				if (s.listeners === 0 && s.progress <= 0.99) {
+					console.log(`[${id}] No listeners after idle timeout, stopping stream`);
+					stop(id);
+				}
+
+				s.idleTimeout = null;
+			}, 5000);
 		}
 	});
 });
