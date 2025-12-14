@@ -7,24 +7,31 @@ function createLine(level) {
   line.className = 'json-line';
 
   const content = document.createElement('div');
-  const indent = document.createElement('span');
+  content.className = 'json-content';
+  content.style.setProperty('--level', level);
 
-  indent.className = 'json-indent';
-  indent.style.setProperty('--level', level);
-
-  content.appendChild(indent);
   line.appendChild(content);
 
-  return { line, content, indent };
+  return { line, content };
+}
+
+function isLinkField(key, value) {
+  const linkKeys = ['qr', 'videourl', 'youtubeurl', 'image', 'discord'];
+  return (
+    typeof value === 'string' &&
+    linkKeys.includes(key) &&
+    /^https?:\/\//.test(value)
+  );
 }
 
 // Render a JSON key (e.g. "id": )
 function appendKeySpan(content, key) {
-  if (key === null) return;
+  if (key === null) return null;
   const keySpan = document.createElement('span');
   keySpan.className = 'json-key';
   keySpan.textContent = `"${key}": `;
   content.appendChild(keySpan);
+  return keySpan;
 }
 
 // Render a primitive value (strings, numbers, booleans, null)
@@ -32,34 +39,27 @@ function createValueSpan(key, value) {
   const span = document.createElement('span');
 
   if (typeof value === 'string') {
-    const linkKeys = ['qr', 'videourl', 'youtubeurl', 'image', 'discord'];
-
-    // URL-like fields as clickable links
-    if (linkKeys.includes(key) && /^https?:\/\//.test(value)) {
-      span.className = 'json-string';
-      const a = document.createElement('a');
-      a.href = value;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.className = 'json-link';
-      a.textContent = value;
-      span.textContent = '"';
-      span.appendChild(a);
-      span.appendChild(document.createTextNode('"'));
-      return span;
-    }
-
     span.className = 'json-string';
     span.textContent = `"${value}"`;
-  } else if (typeof value === 'number') {
+    return span;
+  }
+
+  if (typeof value === 'number') {
     span.className = 'json-number';
     span.textContent = value;
-  } else if (typeof value === 'boolean') {
+    return span;
+  }
+
+  if (typeof value === 'boolean') {
     span.className = 'json-boolean';
     span.textContent = value;
-  } else if (value === null) {
+    return span;
+  }
+
+  if (value === null) {
     span.className = 'json-null';
     span.textContent = 'null';
+    return span;
   }
 
   return span;
@@ -70,6 +70,47 @@ function renderValue(value, level, key, isLast) {
   const type = Object.prototype.toString.call(value);
 
   // Primitive types
+  if (type === '[object String]' && isLinkField(key, value)) {
+    const { line, content } = createLine(level);
+
+    const wrapper = document.createElement('span');
+    wrapper.className = 'json-linkline';
+
+    const keySpan = document.createElement('span');
+    keySpan.className = 'json-key';
+    keySpan.textContent = `"${key}": `;
+    wrapper.appendChild(keySpan);
+
+    const q1 = document.createElement('span');
+    q1.className = 'json-quote';
+    q1.textContent = `"`;
+    wrapper.appendChild(q1);
+
+    const a = document.createElement('a');
+    a.href = value;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.className = 'json-link';
+    a.textContent = value;
+    wrapper.appendChild(a);
+
+    const q2 = document.createElement('span');
+    q2.className = 'json-quote';
+    q2.textContent = `"`;
+    wrapper.appendChild(q2);
+
+    if (!isLast) {
+      const comma = document.createElement('span');
+      comma.className = 'json-comma';
+      comma.textContent = ',';
+      wrapper.appendChild(comma);
+    }
+
+    content.appendChild(wrapper);
+    return line;
+  }
+
+  // Normal primitives: render normally (these should wrap)
   if (
     type === '[object String]' ||
     type === '[object Number]' ||
@@ -79,11 +120,20 @@ function renderValue(value, level, key, isLast) {
     const { line, content } = createLine(level);
     appendKeySpan(content, key);
 
+    const valueWrap = document.createElement('span');
+    valueWrap.className = 'json-valuewrap';
+
     const vSpan = createValueSpan(key, value);
-    content.appendChild(vSpan);
+    valueWrap.appendChild(vSpan);
 
-    if (!isLast) content.appendChild(document.createTextNode(','));
+    if (!isLast) {
+      const comma = document.createElement('span');
+      comma.className = 'json-comma';
+      comma.textContent = ',';
+      valueWrap.appendChild(comma);
+    }
 
+    content.appendChild(valueWrap);
     return line;
   }
 
@@ -137,7 +187,12 @@ function renderValue(value, level, key, isLast) {
   braceClose.textContent = isArray ? ']' : '}';
   closeContent.appendChild(braceClose);
 
-  if (!isLast) closeContent.appendChild(document.createTextNode(','));
+  if (!isLast) {
+    const comma = document.createElement('span');
+    comma.className = 'json-comma';
+    comma.textContent = ',';
+    closeContent.appendChild(comma);
+  }
 
   block.appendChild(closeLine);
 
@@ -147,7 +202,7 @@ function renderValue(value, level, key, isLast) {
 // Render JSON into a container
 function renderJsonInto(container, data) {
   container.innerHTML = '';
-  const root = renderValue(data, 0, null, true);
+  const root = renderValue(data, 1, null, true);
   container.appendChild(root);
 }
 

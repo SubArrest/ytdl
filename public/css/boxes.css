@@ -72,3 +72,22 @@
   text-align: center;
   width: 100%;
 }
+
+.box--main .box-inner{
+  overflow: hidden;
+  justify-content: center;
+  inset: 18px;
+  padding: 0 12px;
+}
+
+.box--main .box-inner > *{
+  max-width: 100%;
+  flex-shrink: 1;
+}
+
+@media (max-height: 520px){
+  .box--main .box-inner{
+    overflow-y: auto;
+	overflow-x: hidden;
+  }
+}

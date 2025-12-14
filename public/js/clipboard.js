@@ -1,21 +1,18 @@
 const copyBtn = document.getElementById('copy-json-btn');
 
+let copyTimer = null;
+
 copyBtn.addEventListener('click', async () => {
-  if (!window.lastJsonData) return;
+if (!window.lastJsonData) return;
 
-  const text = JSON.stringify(window.lastJsonData, null, 2);
+try {
+	await navigator.clipboard.writeText(JSON.stringify(window.lastJsonData, null, 2));
 
-  try {
-    await navigator.clipboard.writeText(text);
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => {
-      copyBtn.textContent = 'Copy JSON';
-    }, 1200);
-  } catch (err) {
-    console.error('Clipboard error:', err);
-    copyBtn.textContent = 'Failed :(';
-    setTimeout(() => {
-      copyBtn.textContent = 'Copy JSON';
-    }, 1200);
-  }
+	copyBtn.classList.add('is-copied');
+	if (copyTimer) clearTimeout(copyTimer);
+	copyTimer = setTimeout(() => copyBtn.classList.remove('is-copied'), 900);
+} catch (err) {
+	console.error('Clipboard error:', err);
+	// optional: brief shake could go here if you want
+}
 });

@@ -131,12 +131,23 @@
 
         <div id="error-banner" class="error-banner hidden"></div>
 
-        <!-- Copy raw JSON to clipboard -->
-        <button type="button" id="copy-json-btn" class="copy-btn">Copy JSON</button>
-
         <!-- Pretty JSON output area -->
         <div id="json-output" class="json-output">
-          <em>Fill in the form and press "Go" to see the API response here.</em>
+          <button type="button" id="copy-json-btn" class="copy-btn" aria-label="Copy JSON" title="Copy JSON">
+            <!-- copy -->
+            <svg class="copy-icon copy-icon--copy" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 9h10v10H9z"></path>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <!-- check -->
+            <svg class="copy-icon copy-icon--check" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5"></path>
+            </svg>
+          </button>
+
+          <div id="json-render">
+            <em>Fill in the form and press "Go" to see the API response here.</em>
+          </div>
         </div>
       </div>
     </div>

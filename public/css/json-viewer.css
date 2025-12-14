@@ -1,18 +1,74 @@
-/* Copy button */
+/* Copy button overlay */
 .copy-btn {
-  align-self: flex-end;
-  margin-bottom: 8px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
-  border-radius: 6px;
-  border: 1px solid #7ab3f8;
-  background: #ffffff;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+
+  background: color-mix(in srgb, var(--box-bg) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--box-border) 70%, transparent);
   cursor: pointer;
+
+  display: grid;
+  place-items: center;
+
+  box-shadow: 0 6px 18px #0005;
+  transition: transform 0.15s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
 }
 
 .copy-btn:hover {
-  background: #e3f0ff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px #0006;
+  border-color: var(--accent-color);
 }
+
+.copy-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 16px #0005;
+}
+
+.copy-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 35%, transparent), 0 8px 18px #0006;
+}
+
+/* Icons inherit theme color */
+.copy-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--text-color);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Copy vs check toggle */
+.copy-icon--check {
+  display: none;
+}
+
+.copy-btn.is-copied .copy-icon--copy {
+  display: none;
+}
+.copy-btn.is-copied .copy-icon--check {
+  display: block;
+}
+
+/* Don’t cover line numbers too much on small screens */
+@media (max-width: 768px) {
+  .copy-btn {
+    top: 8px;
+    right: 8px;
+    width: 34px;
+    height: 34px;
+  }
+}
+
 
 /* Error banner */
 .error-banner {
@@ -40,21 +96,79 @@
   padding: 8px 0;
   width: 100%;
   height: 100%;
-  overflow: auto;
+  overflow: hidden;
   font-family: Consolas, Monaco, 'Courier New', monospace;
   font-size: 0.85rem;
   line-height: 1.35;
   counter-reset: line;
   margin-top: 8px;
+  position: relative;
+}
+
+#json-render {
+  height: 100%;
+  overflow: auto;
+  overflow-x: auto;
+  padding: 8px 0;
 }
 
 /* JSON line */
 .json-line {
   counter-increment: line;
   display: grid;
-  grid-template-columns: 3em auto;
-  column-gap: 8px;
-  padding: 0 12px;
+  grid-template-columns: 2.2em minmax(0, 1fr);
+  column-gap: 6px;
+
+  width: 100%;
+  min-width: 0;
+  padding-right: 8px;
+
+  white-space: normal;
+}
+
+.json-line-content {
+  align-items: baseline;
+  min-width: 0;
+}
+
+.json-line-content .json-string,
+.json-line-content .json-number,
+.json-line-content .json-boolean,
+.json-line-content .json-null,
+.json-line-content .json-brace,
+.json-line-content .json-key {
+  min-width: 0;
+}
+
+.json-key,
+.json-string,
+.json-number,
+.json-boolean,
+.json-null,
+.json-brace,
+.json-comma {
+  display: inline;
+}
+
+.json-valuewrap {
+  min-width: 0;
+  display: inline;
+}
+
+.json-valuewrap .json-string {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.json-valuewrap .json-string {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.json-line > div {
+  min-width: 0;
 }
 
 .json-line::before {
@@ -64,10 +178,10 @@
   user-select: none;
 }
 
-/* JSON indentation */
-.json-indent {
-  display: inline-block;
-  width: calc(var(--level, 0) * 1.25rem);
+.json-content {
+  padding-left: calc(var(--level, 0) * 1.25rem);
+  min-width: 0;
+  white-space: normal;
 }
 
 /* JSON syntax colours */
@@ -82,6 +196,46 @@
 .json-link {
   color: #0066cc;
   text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.json-string {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.json-linkline {
+  flex: 0 0 auto;
+  display: inline;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.json-quote {
+  color: var(--json-string-color);
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.json-nowrap {
+  white-space: nowrap;
+}
+
+.json-comma {
+  color: inherit;
+  white-space: nowrap;
+}
+
+.json-linkline .json-key,
+.json-linkline .json-link,
+.json-linkline .json-comma {
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
 }
 
 /* JSON collapsible blocks */

@@ -64,10 +64,10 @@ function renderCacheList(items) {
     div.addEventListener('click', () => {
       setCacheOpen(false);
 
-      const out = document.getElementById('json-output');
+      const out = document.getElementById('json-render');
       renderJsonInto(out, item);
       window.updateMiniPlayerForData(item);
-      lastJsonData = item;
+      window.lastJsonData = item;
 
       const pageEl = document.querySelector('.page');
       pageEl.classList.add('show-results');

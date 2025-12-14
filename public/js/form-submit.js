@@ -1,6 +1,6 @@
 const form = document.getElementById('ytdl-form');
 const page = document.querySelector('.page');
-const jsonOutput = document.getElementById('json-output');
+const jsonOutput = document.getElementById('json-render');
 const processingIndicator = document.getElementById('processing-indicator');
 const errorBanner = document.getElementById('error-banner');
 const resultHeading = document.getElementById('result-heading');
